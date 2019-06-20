@@ -69,7 +69,8 @@ mean_test <- function(data, formula, method = "t.test", ref.group = NULL, detail
     return(res)
   }
 
-  test.function <- match.fun(method)
+  # test.function <- match.fun(method)
+  test.function <- method
   test.args <- list()
   grp1 <- grp2 <- NULL
   outcome <- get_formula_left_hand_side(formula)
@@ -86,10 +87,17 @@ mean_test <- function(data, formula, method = "t.test", ref.group = NULL, detail
   else {
     # Convert group into factor if this is not already the case
     data <- data %>% .as_factor(group, ref.group = ref.group)
+    outcome.values <- data %>% pull(!!outcome)
+    group.values <- data %>% pull(!!group)
     group.levels <- data %>% get_levels(group)
     grp1 <- group.levels[1]
     grp2 <- group.levels[2]
-    test.args <- list(formula = formula, data = data, ...)
+    test.args <- list(
+        x = outcome.values[group.values == grp1],
+        y = outcome.values[group.values == grp2],
+        ...
+      )
+    # test.args <- list(formula = formula, data = data, ...)
   }
 
   statistic <- p <- NULL
@@ -129,14 +137,15 @@ mean_test_pairwise <- function(data, formula, method = "t.test",
   }
   # Perform comparisons
   p <- p.adj <- NULL
-  res <- compare_pairs(data, formula, possible.pairs, method, ...) %>%
+  res <- compare_pairs(data, formula, possible.pairs, method, detailed = detailed, ...) %>%
     adjust_pvalue(method = p.adjust.method) %>%
     add_significance("p.adj") %>%
     mutate(
       p = signif(p, digits = 3),
       p.adj = signif(p.adj, digits = 3)
     )
-if(!detailed) res <- remove_details(res, method = method)
+ if(!detailed) res <- remove_details(res, method = method)
+ res
 }
 
 # One vs all mean comparisons
@@ -208,7 +217,7 @@ remove_details <- function(res, method){
     intercept.row <- grepl("Intercept", aov.table$Effect)
     res$ANOVA<- aov.table[!intercept.row, ]
   }
-  else if(method %in% c("t.test", "wilcox.test", "kruskal.test") ){
+  else if(method %in% c("t.test", "wilcox.test", "kruskal.test", "sign.test") ){
     columns.to.keep <- intersect(
       c(".y.", "group1", "group2", "statistic", "df", "p", "p.signif", "p.adj", "p.adj.signif"),
       colnames(res)

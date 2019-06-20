@@ -1,5 +1,5 @@
 <!-- README.md is generated from README.Rmd. Please edit that file -->
-[![Build Status](https://api.travis-ci.org/kassambara/rstatix.png)](https://travis-ci.org/kassambara/rstatix)
+[![Build Status](https://api.travis-ci.org/kassambara/rstatix.png)](https://travis-ci.org/kassambara/rstatix) [![CRAN\_Status\_Badge](https://www.r-pkg.org/badges/version/rstatix)](https://cran.r-project.org/package=rstatix) [![CRAN Checks](https://cranchecks.info/badges/summary/rstatix)](https://cran.r-project.org/web/checks/check_results_rstatix.html) [![Downloads](https://cranlogs.r-pkg.org/badges/rstatix)](https://cran.r-project.org/package=rstatix) [![Total Downloads](https://cranlogs.r-pkg.org/badges/grand-total/rstatix?color=orange)](https://cranlogs.r-pkg.org/badges/grand-total/rstatix)
 
 rstatix
 =======
@@ -28,9 +28,13 @@ Key functions
 
 -   `t_test()`: perform one-sample, two-sample and pairwise t-tests
 -   `wilcox_test()`: perform one-sample, two-sample and pairwise Wilcoxon tests
+-   `sign_test()`: perform sign test to determine whether there is a median difference between paired or matched observations.
 -   `anova_test()`: an easy-to-use wrapper around `car::Anova()` to perform different types of ANOVA tests, including **independent measures ANOVA**, **repeated measures ANOVA** and **mixed ANOVA**.
 -   `kruskal_test()`: perform kruskal-wallis rank sum test
 -   `tukey_hsd()`: performs tukey post-hoc tests. Can handle different inputs formats: aov, lm, formula.
+-   `dunn_test()`: compute multiple pairwise comparisons following Kruskal-Wallis test.
+-   `get_comparisons()`: Create a list of possible pairwise comparisons between groups.
+-   `get_pvalue_position`: autocompute p-value positions for plotting significance using ggplot2.
 
 ### Facilitating ANOVA computation in R
 
@@ -46,6 +50,7 @@ Key functions
 
 -   `cohens_d()`: Compute cohen's d measure of effect size for t-tests.
 -   `eta_squared()` and `partial_eta_squared()`: Compute effect size for ANOVA.
+-   `cramer_v()`: Compute Cramer's V, which measures the strength of the association between categorical variables.
 
 ### Correlation analysis
 
@@ -86,17 +91,21 @@ Key functions
 -   `sample_n_by()`: sample n rows by group from a table
 -   `convert_as_factor(), set_ref_level(), reorder_levels()`: Provides pipe-friendly functions to convert simultaneously multiple variables into a factor variable.
 -   `make_clean_names()`: Pipe-friendly function to make syntactically valid column names (for input data frame) or names (for input vector).
--   `cramer_v()`: Compute Cramer's V, which measures the strength of the association between categorical variables.
 
 Installation and loading
 ------------------------
 
--   Install the latest version from [GitHub](https://github.com/kassambara/rstatix) as follow:
+-   Install the latest developmental version from [GitHub](https://github.com/kassambara/rstatix) as follow:
 
 ``` r
-# Install
 if(!require(devtools)) install.packages("devtools")
 devtools::install_github("kassambara/rstatix")
+```
+
+-   Or install from [CRAN](https://cran.r-project.org/package=ggpubr) as follow:
+
+``` r
+install.packages("rstatix")
 ```
 
 -   Loading packages
@@ -178,7 +187,7 @@ stat.test <- df %>%
 stat.test
 #> # A tibble: 1 x 6
 #>   .y.   group1 group2 statistic    df      p
-#>   <chr> <chr>  <chr>      <dbl> <dbl>  <dbl>
+#> * <chr> <chr>  <chr>      <dbl> <dbl>  <dbl>
 #> 1 len   OJ     VC          1.92  55.3 0.0606
 
 # Create a box plot
@@ -238,7 +247,7 @@ stat.test <- df %>%
 stat.test
 #> # A tibble: 1 x 6
 #>   .y.   group1 group2 statistic    df       p
-#>   <chr> <chr>  <chr>      <dbl> <dbl>   <dbl>
+#> * <chr> <chr>  <chr>      <dbl> <dbl>   <dbl>
 #> 1 len   OJ     VC          3.30    29 0.00255
 
 # Box plot
@@ -261,7 +270,7 @@ pairwise.test <- df %>% t_test(len ~ dose)
 pairwise.test
 #> # A tibble: 3 x 8
 #>   .y.   group1 group2 statistic    df        p    p.adj p.adj.signif
-#>   <chr> <chr>  <chr>      <dbl> <dbl>    <dbl>    <dbl> <chr>       
+#> * <chr> <chr>  <chr>      <dbl> <dbl>    <dbl>    <dbl> <chr>       
 #> 1 len   0.5    1          -6.48  38.0 1.27e- 7 2.54e- 7 ****        
 #> 2 len   0.5    2         -11.8   36.9 4.40e-14 1.32e-13 ****        
 #> 3 len   1      2          -4.90  37.1 1.91e- 5 1.91e- 5 ****
@@ -285,7 +294,7 @@ stat.test <- df %>% t_test(len ~ dose, ref.group = "0.5")
 stat.test
 #> # A tibble: 2 x 8
 #>   .y.   group1 group2 statistic    df        p    p.adj p.adj.signif
-#>   <chr> <chr>  <chr>      <dbl> <dbl>    <dbl>    <dbl> <chr>       
+#> * <chr> <chr>  <chr>      <dbl> <dbl>    <dbl>    <dbl> <chr>       
 #> 1 len   0.5    1          -6.48  38.0 1.27e- 7 1.27e- 7 ****        
 #> 2 len   0.5    2         -11.8   36.9 4.40e-14 8.80e-14 ****
 # Box plot
@@ -318,7 +327,7 @@ stat.test <- df %>% t_test(len ~ dose, ref.group = "all")
 stat.test
 #> # A tibble: 3 x 8
 #>   .y.   group1 group2 statistic    df           p      p.adj p.adj.signif
-#>   <chr> <chr>  <chr>      <dbl> <dbl>       <dbl>      <dbl> <chr>       
+#> * <chr> <chr>  <chr>      <dbl> <dbl>       <dbl>      <dbl> <chr>       
 #> 1 len   all    0.5        5.82   56.4 0.000000290 0.00000087 ****        
 #> 2 len   all    1         -0.660  57.5 0.512       0.512      ns          
 #> 3 len   all    2         -5.61   66.5 0.000000425 0.00000087 ****
@@ -515,7 +524,7 @@ cor.mat %>%
   cor_plot()
 ```
 
-![](tools/README-unnamed-chunk-8-1.png)
+![](tools/README-unnamed-chunk-9-1.png)
 
 Related articles
 ----------------

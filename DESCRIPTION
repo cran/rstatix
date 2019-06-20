@@ -1,7 +1,7 @@
 Package: rstatix
 Type: Package
 Title: Pipe-Friendly Framework for Basic Statistical Tests
-Version: 0.1.0
+Version: 0.1.1
 Authors@R: c(
     person("Alboukadel", "Kassambara", role = c("aut", "cre"), email = "alboukadel.kassambara@gmail.com"))
 Description: Provides a simple and intuitive pipe-friendly framework, coherent with the 'tidyverse' design philosophy, 
@@ -29,14 +29,15 @@ Collate: 'utilities.R' 'add_significance.R' 'adjust_pvalue.R'
         'cor_as_symbols.R' 'replace_triangle.R' 'pull_triangle.R'
         'cor_mark_significant.R' 'cor_mat.R' 'cor_plot.R'
         'cor_reorder.R' 'cor_reshape.R' 'cor_select.R' 'cor_test.R'
-        'cramer_v.R' 'doo.R' 'eta_squared.R' 'factors.R' 'freq_table.R'
-        'get_mode.R' 'get_summary_stats.R' 'kruskal_test.R'
+        'cramer_v.R' 'doo.R' 't_test.R' 'dunn_test.R' 'eta_squared.R'
+        'factors.R' 'freq_table.R' 'get_comparisons.R' 'get_mode.R'
+        'get_pvalue_position.R' 'get_summary_stats.R' 'kruskal_test.R'
         'levene_test.R' 'mahalanobis_distance.R' 'make_clean_names.R'
         'outliers.R' 'reexports.R' 'sample_n_by.R' 'shapiro_test.R'
-        't_test.R' 'tukey_hsd.R' 'wilcox_test.R'
+        'sign_test.R' 'tukey_hsd.R' 'wilcox_test.R'
 NeedsCompilation: no
-Packaged: 2019-05-24 21:14:34 UTC; kassambara
+Packaged: 2019-06-20 15:31:30 UTC; kassambara
 Author: Alboukadel Kassambara [aut, cre]
 Maintainer: Alboukadel Kassambara <alboukadel.kassambara@gmail.com>
 Repository: CRAN
-Date/Publication: 2019-05-27 09:10:03 UTC
+Date/Publication: 2019-06-20 15:50:03 UTC
