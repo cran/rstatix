@@ -1,4 +1,5 @@
 #' @importFrom magrittr %>%
+#' @importFrom magrittr %<>%
 #' @importFrom magrittr extract
 #' @importFrom magrittr set_colnames
 #' @importFrom dplyr mutate
@@ -28,7 +29,6 @@
 #' @importFrom rlang .data
 #' @importFrom rlang syms
 #' @importFrom rlang !!!
-#' @importFrom rlang set_attrs
 #' @importFrom rlang quos
 #' @importFrom rlang quo_name
 #' @importFrom tibble add_column
@@ -39,8 +39,9 @@
 #' @importFrom tidyr unnest
 
 
-# Conditionnaly rounding
-roundif <- function(x, digits = 3){
+# Rounding values --------------------------------------
+# Round a vector, conditionnaly rounding
+round_value <- function(x, digits = 0){
   sapply(
     x,
     function(x, digits){
@@ -53,6 +54,56 @@ roundif <- function(x, digits = 3){
     },
     digits
   )
+}
+# Round a whole data frame or selected columns
+round_column <- function(data, ...,  digits = 0){
+  dot.vars <- get_existing_dot_vars(data, ...)
+  if(.is_empty(dot.vars)){
+    data %<>% dplyr::mutate_if(is.numeric, round_value, digits = digits)
+  }
+  data %<>% dplyr::mutate_at(dot.vars, round_value, digits = digits)
+  data
+}
+
+# Extract or replace number from character string
+extract_number <- function(x){
+  as.numeric(gsub("[^0-9.-]+", "", as.character(x)))
+}
+replace_number <- function(x, replacement = ""){
+  gsub("[0-9.]", replacement, as.character(x))
+}
+
+# Add columns into data frame
+# If specified before or after columns does not exist, columns are appended at the end
+add_columns <- function(.data, ..., .before = NULL, .after = NULL){
+  if(is.character(.before)){
+    if(!(.before %in% colnames(.data))){
+      .before <- NULL
+    }
+  }
+  if(is.character(.after)){
+    if(!(.after %in% colnames(.data))){
+      .after <- NULL
+    }
+  }
+  tibble::add_column(.data, ..., .before = .before, .after = .after)
+}
+
+
+
+
+
+
+
+
+# Check if required package is installed
+required_package <- function(pkg){
+  if (!requireNamespace(pkg, quietly = TRUE)) {
+    stop(
+      pkg, " package needed to be installed before using this function. ",
+      "Type this in R: install.packages('", pkg, "')"
+    )
+  }
 }
 
 
@@ -210,16 +261,14 @@ get_levels <- function(data, group){
 
 # Guess p-value column name from a statistical test output
 #:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-.guess_pvalue_column <- function(data){
-  matches <- dplyr::matches
-  common.p.cols <- "^p$|^pval$|^pvalue$|^p\\.val$|^p\\.value$"
-  p.col <- data %>%
-    select(matches(common.p.cols)) %>%
-    colnames()
-  if(.is_empty(p.col))
-    stop("Can't guess the p value column from the input data. Specify the p.col argument")
-  p.col
+# transform vector into regular expression
+as_regexp <- function(x){
+  . <- NULL
+  gsub(".", "\\.", x, fixed = TRUE) %>%
+    paste(collapse = "$|^") %>%
+    paste("^", ., "$", sep = "")
 }
+
 
 # Generate all possible pairs of a factor levels
 #:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -247,18 +296,17 @@ get_levels <- function(data, group){
 #:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 # Generic function to create a tidy statistical output
 as_tidy_stat <- function(x, digits = 3){
-
-  stat.method <- get_stat_method(x)
-
   estimate <- estimate1 <- estimate2 <- p.value <-
     alternative <- NULL
-  res <- x %>%
-    tidy() %>%
-    mutate(
-      p.value = signif(p.value, digits),
-      method = stat.method
-    ) %>%
-    rename(p = p.value)
+  res <- tidy(x)
+  if("method" %in% colnames(res)){
+    stat.method <- get_stat_method(x)
+    res %<>% mutate(method = stat.method)
+  }
+  if("p.value" %in% colnames(res)){
+    res %<>% mutate(p.value = signif(p.value, digits)) %>%
+      rename(p = p.value)
+  }
   if("parameter" %in% colnames(res)){
     res <- res %>% rename(df = .data$parameter)
   }
@@ -272,7 +320,8 @@ get_stat_method <- function(x){
   }
   available.methods <- c(
     "T-test", "Wilcoxon", "Kruskal-Wallis",
-    "Pearson", "Spearman", "Kendall", "Sign-Test"
+    "Pearson", "Spearman", "Kendall", "Sign-Test",
+    "Cohen's d"
   )
   used.method <- available.methods %>%
     map(grepl, x$method, ignore.case = TRUE) %>%
@@ -299,7 +348,7 @@ get_stat_method <- function(x){
   levels(x)
 }
 
-# Additems in a list
+# Add/remove items in a list
 #:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 add_item <- function(.list, ...){
   pms <- list(...)
@@ -308,6 +357,16 @@ add_item <- function(.list, ...){
   }
   .list
 }
+remove_item <- function(.list, items){
+  for(item in items)
+    .list[[item]] <- NULL
+  .list
+}
+remove_null_items <- function(.list){
+  Filter(Negate(is.null), .list)
+}
+
+
 # depreciated
 .add_item <- function(.list, ...){
   add_item(.list, ...)
@@ -318,6 +377,7 @@ add_item <- function(.list, ...){
 # First letter uppercase
 #:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 to_uppercase_first_letter <- function(x) {
+  if(is.null(x)) return(x)
   substr(x, 1, 1) <- toupper(substr(x, 1, 1))
   x
 }
@@ -430,11 +490,14 @@ get_selected_vars <- function(x, ..., vars = NULL){
   selected %>% as.character()
 }
 
-# Return dot variables
+# Return dot variables -----------------------
 get_dot_vars <- function(...){
   rlang::quos(...) %>%
     map(rlang::quo_text) %>%
     unlist()
+}
+get_existing_dot_vars <- function(data, ...){
+  tidyselect::vars_select(colnames(data), !!!rlang::quos(...))
 }
 
 
@@ -453,6 +516,22 @@ add_class <- function(x, .class){
     if(!inherits(x, .cl))
       x <- structure(x, class = c(class(x), .cl))
   }
+  x
+}
+
+prepend_class <- function(x, .class){
+  current.class <- class(x)
+  diff.class <- setdiff(class(x), .class)
+  x <- structure(x, class = c(.class, diff.class))
+  x
+}
+
+# Add/set attributes
+#:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+set_attrs <- function (x, ...)
+{
+  attrs <- list(...)
+  attributes(x) <- c(attributes(x), attrs)
   x
 }
 
@@ -526,16 +605,77 @@ get_test_grouping_vars <- function(test){
 # Get  and set the test attributes: class and attr
 # used to propagate attributes
 get_test_attributes <- function(test){
-  list(
-    class = class(test),
-    args = get_test_arguments(test)
-    )
+  .attributes <- attributes(test)
+  .attributes$names <- .attributes$row.names <- NULL
+  .attributes
 }
 set_test_attributes <- function(test, .attributes){
   class(test) <- .attributes$class
-  if(!is.null(.attributes$args))
-    attr(test, "args") <- .attributes$args
+  .attributes$class <- NULL
+  for (attr.name in names(.attributes)){
+    attr(test, attr.name ) <- .attributes[[attr.name]]
+  }
   test
 }
 
+get_group_size <- function(data, group){
+  result <- data %>%
+    group_by(!!sym(group)) %>%
+    dplyr::count()
+  n <- result$n
+  group.levels <- result %>% pull(1)
+  names(n) <- group.levels
+  n
+}
 
+stop_ifnot_class <- function(x, .class){
+  object.name <- deparse(substitute(x))
+  if(!inherits(x, .class)){
+    stop(object.name, " should be an object of class: ",
+         paste(.class, collapse = ", "))
+  }
+}
+
+# Allowed pairwise comparison tests
+get_pairwise_comparison_methods <- function(){
+  c(
+    t_test = "T test",
+    wilcox_test = "Wilcoxon test",
+    sign_test = "Sign test",
+    dunn_test = "Dunn test",
+    emmeans_test = "Emmeans test",
+    tukey_hsd = "Tukey HSD",
+    games_howell_test = "Games Howell"
+  )
+}
+
+# Bootstrap confidence intervals -------------------------
+get_boot_ci <- function(data, stat.func, conf.level = 0.95, type = "perc", nboot = 500){
+  required_package("boot")
+  Boot = boot::boot(data, stat.func, R = nboot)
+  BCI = boot::boot.ci(Boot, conf = conf.level, type = type, parallel = "multicore")
+  type <- switch(
+    type, norm = "normal", perc = "percent",
+    basic = "basic", bca = "bca", stud = "student", type
+  )
+  CI <- as.vector(BCI[[type]]) %>%
+    utils::tail(2) %>% round_value(digits = 2)
+  CI
+}
+
+
+
+get_complete_cases <- function(data){
+  data %>%
+    filter(complete.cases(data))
+}
+
+
+# transform squared matrix into tidy data frame
+tidy_squared_matrix <- function(data, value = "value"){
+  data %>%
+    as_tibble(rownames = "group2") %>%
+    gather(key = "group1", value = !!value, -.data$group2) %>%
+    stats::na.omit() %>% as_tibble() %>%
+    select(.data$group1, everything())
+}

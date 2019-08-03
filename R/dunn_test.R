@@ -9,16 +9,26 @@ NULL
 #'@return return a data frame with some of the following columns: \itemize{
 #'  \item \code{.y.}: the y (outcome) variable used in the test. \item
 #'  \code{group1,group2}: the compared groups in the pairwise tests. \item
-#'  \code{statistic}: Test statistic (z-value) used to compute the p-value. \item
-#'  \code{p}: p-value. \item \code{p.adj}: the adjusted p-value. \item
-#'  \code{method}: the statistical test used to compare groups. \item
+#'  \code{n1,n2}: Sample counts. \item \code{estimate}: mean ranks difference.
+#'  \item \code{statistic}: Test statistic (z-value) used to compute the
+#'  p-value. \item \code{p}: p-value. \item \code{p.adj}: the adjusted p-value.
+#'  \item \code{method}: the statistical test used to compare groups. \item
 #'  \code{p.signif, p.adj.signif}: the significance level of p-values and
 #'  adjusted p-values, respectively. }
 #'
-#'  The \strong{returned object has an attribute called args}, which is a list holding
-#'  the test arguments.
-#' @references
-#' Dunn, O. J. (1964) Multiple comparisons using rank sums Technometrics, 6(3):241-252.
+#'  The \strong{returned object has an attribute called args}, which is a list
+#'  holding the test arguments.
+#'@details DunnTest performs the post hoc pairwise multiple comparisons
+#'  procedure appropriate to follow up a Kruskal-Wallis test, which is a
+#'  non-parametric analog of the one-way ANOVA. The Wilcoxon rank sum test,
+#'  itself a non-parametric analog of the unpaired t-test, is possibly
+#'  intuitive, but inappropriate as a post hoc pairwise test, because (1) it
+#'  fails to retain the dependent ranking that produced the Kruskal-Wallis test
+#'  statistic, and (2) it does not incorporate the pooled variance estimate
+#'  implied by the null hypothesis of the Kruskal-Wallis test.
+#'
+#'@references Dunn, O. J. (1964) Multiple comparisons using rank sums
+#'  Technometrics, 6(3):241-252.
 #' @examples
 #' ToothGrowth %>% dunn_test(len ~ dose)
 #'@export
@@ -47,6 +57,7 @@ dunn_test <- function(data, formula, p.adjust.method = "holm"){
 
   x <- data %>% pull(!!outcome)
   g <- data %>% pull(!!group)
+  group.size <- data %>% get_group_size(group)
   if (!all(is.finite(g)))
     stop("all group levels must be finite")
 
@@ -95,16 +106,15 @@ dunn_test <- function(data, formula, p.adjust.method = "holm"){
     add_column(statistic = PSTAT$statistic, .before = "p") %>%
     add_column(estimate = ESTIMATE$diff, .before = "group1") %>%
     select(.data$.y., .data$group1, .data$group2, .data$estimate, everything())
+
+  n1 <- group.size[PVAL$group1]
+  n2 <- group.size[PVAL$group2]
   PVAL %>%
+    add_column(n1 = n1, n2 = n2, .after = "group2") %>%
     set_attrs(args = args) %>%
     add_class(c("rstatix_test", "dunn_test"))
 }
 
-
-get_complete_cases <- function(data){
-  data %>%
-    filter(complete.cases(data))
-}
 
 
 get_ties <- function(x, n) {
@@ -120,14 +130,6 @@ get_ties <- function(x, n) {
     }
   }
   tiesum / (12 * (n - 1))
-}
-# transform squared matrix into tidy data frame
-tidy_squared_matrix <- function(data, value){
-  data %>%
-    as_tibble(rownames = "group2") %>%
-    gather(key = "group1", value = !!value, -.data$group2) %>%
-    stats::na.omit() %>% as_tibble() %>%
-    select(.data$group1, everything())
 }
 
 

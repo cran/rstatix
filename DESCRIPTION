@@ -1,7 +1,7 @@
 Package: rstatix
 Type: Package
 Title: Pipe-Friendly Framework for Basic Statistical Tests
-Version: 0.1.1
+Version: 0.1.2
 Authors@R: c(
     person("Alboukadel", "Kassambara", role = c("aut", "cre"), email = "alboukadel.kassambara@gmail.com"))
 Description: Provides a simple and intuitive pipe-friendly framework, coherent with the 'tidyverse' design philosophy, 
@@ -19,25 +19,29 @@ Encoding: UTF-8
 Depends: R (>= 3.3.0)
 Imports: stats, utils, tidyr, purrr, broom, rlang, tibble, dplyr (>=
         0.7.1), magrittr, corrplot, tidyselect, car
-Suggests: knitr, rmarkdown, ggpubr, graphics
+Suggests: knitr, rmarkdown, ggpubr, graphics, emmeans, coin, boot
 URL: https://rpkgs.datanovia.com/rstatix/
 BugReports: https://github.com/kassambara/rstatix/issues
 RoxygenNote: 6.1.1
 Collate: 'utilities.R' 'add_significance.R' 'adjust_pvalue.R'
-        'factorial_design.R' 'utilities_mean_test.R' 'anova_summary.R'
-        'anova_test.R' 'as_cor_mat.R' 'box_m.R' 'cohens_d.R'
-        'cor_as_symbols.R' 'replace_triangle.R' 'pull_triangle.R'
-        'cor_mark_significant.R' 'cor_mat.R' 'cor_plot.R'
-        'cor_reorder.R' 'cor_reshape.R' 'cor_select.R' 'cor_test.R'
-        'cramer_v.R' 'doo.R' 't_test.R' 'dunn_test.R' 'eta_squared.R'
-        'factors.R' 'freq_table.R' 'get_comparisons.R' 'get_mode.R'
-        'get_pvalue_position.R' 'get_summary_stats.R' 'kruskal_test.R'
+        'factorial_design.R' 'utilities_two_sample_test.R'
+        'anova_summary.R' 'anova_test.R' 'as_cor_mat.R' 'box_m.R'
+        'cohens_d.R' 'cor_as_symbols.R' 'replace_triangle.R'
+        'pull_triangle.R' 'cor_mark_significant.R' 'cor_mat.R'
+        'cor_plot.R' 'cor_reorder.R' 'cor_reshape.R' 'cor_select.R'
+        'cor_test.R' 'cramer_v.R' 'doo.R' 't_test.R' 'dunn_test.R'
+        'emmeans_test.R' 'eta_squared.R' 'factors.R' 'freq_table.R'
+        'friedman_test.R' 'friedman_effesize.R' 'games_howell_test.R'
+        'get_comparisons.R' 'get_manova_table.R' 'get_mode.R'
+        'get_pvalue_position.R' 'get_summary_stats.R'
+        'get_test_label.R' 'kruskal_effesize.R' 'kruskal_test.R'
         'levene_test.R' 'mahalanobis_distance.R' 'make_clean_names.R'
-        'outliers.R' 'reexports.R' 'sample_n_by.R' 'shapiro_test.R'
-        'sign_test.R' 'tukey_hsd.R' 'wilcox_test.R'
+        'outliers.R' 'p_value.R' 'reexports.R' 'sample_n_by.R'
+        'shapiro_test.R' 'sign_test.R' 'tukey_hsd.R'
+        'welch_anova_test.R' 'wilcox_effsize.R' 'wilcox_test.R'
 NeedsCompilation: no
-Packaged: 2019-06-20 15:31:30 UTC; kassambara
+Packaged: 2019-08-03 05:08:29 UTC; kassambara
 Author: Alboukadel Kassambara [aut, cre]
 Maintainer: Alboukadel Kassambara <alboukadel.kassambara@gmail.com>
 Repository: CRAN
-Date/Publication: 2019-06-20 15:50:03 UTC
+Date/Publication: 2019-08-03 05:30:03 UTC

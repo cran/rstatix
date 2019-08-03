@@ -1,40 +1,42 @@
-#' @include utilities.R
+#' @include utilities.R utilities_two_sample_test.R
 #' @importFrom stats qbinom
 #' @importFrom stats pbinom
 NULL
-#' Sign Test
+#'Sign Test
 #'
-#' @description Performs one-sample and two-sample sign tests.
-#' @inheritParams t_test
+#'@description Performs one-sample and two-sample sign tests.
+#'@inheritParams t_test
 #'@param data a data.frame containing the variables in the formula.
 #'@param formula a formula of the form \code{x ~ group} where \code{x} is a
 #'  numeric variable giving the data values and \code{group} is a factor with
 #'  one or multiple levels giving the corresponding groups. For example,
 #'  \code{formula = TP53 ~ treatment}.
-#' @param mu a single number representing the value of the population median specified by the null hypothesis.
+#'@param mu a single number representing the value of the population median
+#'  specified by the null hypothesis.
 #'@param ref.group a character string specifying the reference group. If
 #'  specified, for a given grouping variable, each of the group levels will be
 #'  compared to the reference group (i.e. control group).
-#' @param ... other arguments passed to the function \code{sign_test()}
+#'@param ... other arguments passed to the function \code{sign_test()}
 #'
 #'@return return a data frame with some the following columns: \itemize{ \item
 #'  \code{.y.}: the y variable used in the test. \item \code{group1,group2}: the
-#'  compared groups in the pairwise tests. \item \code{statistic}: Test
-#'  statistic used to compute the p-value. \item \code{df, parameter}: degrees of freedom.
-#'  \item \code{p}: p-value.  \item
-#'  \code{method}: the statistical test used to compare groups. \item
-#'  \code{p.signif, p.adj.signif}: the significance level of p-values and
-#'  adjusted p-values, respectively. \item \code{estimate}: estimate of the
-#'  effect size. It corresponds to the median of the differences.
-#'   \item \code{alternative}: a character string describing the alternative hypothesis.
-#'  \item
-#'  \code{conf.low,conf.high}: Lower and upper bound on a confidence interval.
-#'   }
+#'  compared groups in the pairwise tests. \item \code{n,n1,n2}: Sample counts.
+#'  \item \code{statistic}: Test statistic used to compute the p-value. That is
+#'  the S-statistic (the number of positive differences between the data and the
+#'  hypothesized median), with names attribute \code{"S"}. \item \code{df,
+#'  parameter}: degrees of freedom. Here, the total number of valid differences.
+#'  \item \code{p}: p-value.  \item \code{method}: the statistical test used to
+#'  compare groups. \item \code{p.signif, p.adj.signif}: the significance level
+#'  of p-values and adjusted p-values, respectively. \item \code{estimate}:
+#'  estimate of the effect size. It corresponds to the median of the
+#'  differences. \item \code{alternative}: a character string describing the
+#'  alternative hypothesis. \item \code{conf.low,conf.high}: Lower and upper
+#'  bound on a confidence interval of the estimate. }
 #'
-#'  The \strong{returned object has an attribute called args}, which is a list holding
-#'  the test arguments.
-#' @note
-#' This function is a reimplementation of the function \code{SignTest()} from the \code{DescTools} package.
+#'  The \strong{returned object has an attribute called args}, which is a list
+#'  holding the test arguments.
+#'@note This function is a reimplementation of the function \code{SignTest()}
+#'  from the \code{DescTools} package.
 #' @examples
 #' # Load data
 #' #:::::::::::::::::::::::::::::::::::::::
@@ -71,8 +73,8 @@ NULL
 #' df %>% sign_test(len ~ dose, ref.group = "0.5")
 #'
 #'
-#' @describeIn sign_test Sign test
-#' @export
+#'@describeIn sign_test Sign test
+#'@export
 sign_test <- function(data, formula, comparisons = NULL, ref.group = NULL,
                       p.adjust.method = "holm", alternative = "two.sided",
                       mu = 0, conf.level = 0.95, detailed = FALSE){
@@ -123,11 +125,11 @@ sign_test <- function(data, formula, comparisons = NULL, ref.group = NULL,
 
 
 one_sample_sign_test <- function(data, formula, mu = 0, ...){
-  mean_test(data, formula, method = "sign.test", mu = mu, ...)
+  two_sample_test(data, formula, method = "sign.test", mu = mu, ...)
 }
 two_sample_sign_test <- function(data, formula,   ...)
 {
-  mean_test(data, formula, method = "sign.test",  ...)
+  two_sample_test(data, formula, method = "sign.test",  ...)
 }
 
 
@@ -140,7 +142,7 @@ pairwise_sign_test <- function(
   args <- as.list(environment()) %>%
     .add_item(method = "sign_test")
 
-  res <- mean_test_pairwise(
+  res <- pairwise_two_sample_test(
     data, formula, method = "sign.test",
     comparisons = comparisons, ref.group = ref.group,
     p.adjust.method = p.adjust.method, detailed = detailed, ...
@@ -155,17 +157,9 @@ sign.test <- function(x, y = NULL, alternative = c("two.sided", "less", "greater
                              mu = 0, conf.level = 0.95, ...) {
 
   alternative <- match.arg(alternative)
-  if (!missing(mu) & ((length(mu) > 1L) || !is.finite(mu)))
-    stop("'mu' must be a single number")
-  if (!((length(conf.level) == 1L) & is.finite(conf.level) &
-        (conf.level > 0) & (conf.level < 1)))
-    stop("'conf.level' must be a single number between 0 and 1")
-  if (!is.numeric(x))
-    stop("'x' must be numeric")
+  check_two_samples_test_args(x = x, y = y, mu = mu,  conf.level = conf.level)
 
   if (!is.null(y)) {
-    if (!is.numeric(y))
-      stop("'y' must be numeric")
     if (length(x) != length(y))
       stop("'x' and 'y' must have the same length")
     DNAME <- paste(deparse(substitute(x)), "and", deparse(substitute(y)))

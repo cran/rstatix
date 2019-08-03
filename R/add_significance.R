@@ -21,21 +21,25 @@ NULL
 #' @rdname add_significance
 #' @export
 add_significance <- function(
-  data, p.col, output.col,
+  data, p.col = NULL, output.col = NULL,
   cutpoints = c(0, 0.0001, 0.001, 0.01, 0.05,  1),
   symbols = c("****", "***", "**", "*",  "ns")
 )
 {
   .attributes <- get_test_attributes(data)
-  if(missing(p.col))
-    p.col <- .guess_pvalue_column(data)
-  if(missing(output.col))
+  if(is.null(p.col))
+    p.col <- data %>% p_detect("p.adj")
+  if(is.null(p.col))
+    p.col <- data %>% p_detect("p")
+  if(is.null(p.col))
+    return(data)
+  else if(!(p.col %in% colnames(data)))
+    stop("The column ", p.col, " does not exist in the data")
+  if(is.null(output.col))
     output.col <- paste0(p.col, ".signif")
-
-  .p.signif <- data %>% pull(p.col) %>%
+  .p.signif <- data %>% pull(!!p.col) %>%
     stats::symnum(cutpoints = cutpoints, symbols = symbols) %>%
     as.character()
-
   data %>%
     mutate(!!output.col := .p.signif) %>%
     set_test_attributes(.attributes)

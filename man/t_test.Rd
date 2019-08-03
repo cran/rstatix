@@ -31,7 +31,7 @@ interest to be compared. For example to compare groups "A" vs "B" and "B" vs
  specified, for a given grouping variable, each of the group levels will be
  compared to the reference group (i.e. control group).
 
- If \code{ref.group = "all"}, pairwise two sample t-tests are performed for
+ If \code{ref.group = "all"}, pairwise two sample tests are performed for
  comparing each grouping variable levels against all (i.e. basemean).}
 
 \item{p.adjust.method}{method to adjust p values for multiple comparisons.
@@ -51,8 +51,7 @@ want to adjust the p value (not recommended), use p.adjust.method = "none".}
     \code{"greater"} or \code{"less"}.  You can specify just the initial
     letter.}
 
-\item{mu}{a number indicating the true value of the mean (or
-    difference in means if you are performing a two sample test).}
+\item{mu}{a number specifying an optional parameter used to form the null hypothesis.}
 
 \item{conf.level}{confidence level of the interval.}
 
@@ -78,21 +77,22 @@ shown.}
 \value{
 return a data frame with some the following columns: \itemize{ \item
  \code{.y.}: the y variable used in the test. \item \code{group1,group2}: the
- compared groups in the pairwise tests. \item \code{statistic}: Test
- statistic used to compute the p-value. \item \code{df}: degrees of freedom.
- \item \code{p}: p-value. \item \code{p.adj}: the adjusted p-value. \item
- \code{method}: the statistical test used to compare groups. \item
- \code{p.signif, p.adj.signif}: the significance level of p-values and
- adjusted p-values, respectively. \item \code{estimate}: estimate of the
- effect size. It corresponds to the estimated mean or difference in means
- depending on whether it was a one-sample test or a two-sample test. \item
- \code{estimate1, estimate2}: show the mean values of the two groups,
- respectively, for independent samples t-tests. \item \code{alternative}: a
- character string describing the alternative hypothesis. \item
- \code{conf.low,conf.high}: Lower and upper bound on a confidence interval. }
+ compared groups in the pairwise tests. \item \code{n,n1,n2}: Sample counts.
+ \item \code{statistic}: Test statistic used to compute the p-value. \item
+ \code{df}: degrees of freedom. \item \code{p}: p-value. \item \code{p.adj}:
+ the adjusted p-value. \item \code{method}: the statistical test used to
+ compare groups. \item \code{p.signif, p.adj.signif}: the significance level
+ of p-values and adjusted p-values, respectively. \item \code{estimate}:
+ estimate of the effect size. It corresponds to the estimated mean or
+ difference in means depending on whether it was a one-sample test or a
+ two-sample test. \item \code{estimate1, estimate2}: show the mean values of
+ the two groups, respectively, for independent samples t-tests. \item
+ \code{alternative}: a character string describing the alternative
+ hypothesis. \item \code{conf.low,conf.high}: Lower and upper bound on a
+ confidence interval. }
 
- The \strong{returned object has an attribute called args}, which is a list holding
- the test arguments.
+ The \strong{returned object has an attribute called args}, which is a list
+ holding the test arguments.
 }
 \description{
 Provides a pipe-friendly framework to performs one and two sample
