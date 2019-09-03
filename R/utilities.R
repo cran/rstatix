@@ -36,8 +36,24 @@
 #' @importFrom tidyr spread
 #' @importFrom tidyr gather
 #' @importFrom tidyr nest
-#' @importFrom tidyr unnest
 
+
+# Unnesting, adapt to tidyr 1.0.0
+unnest <- function(data, cols = "data", ...){
+  if(is_pkg_version_sup("tidyr", "0.8.3")){
+   results <- tidyr::unnest(data, cols = cols, ...)
+  }
+  else {results <- tidyr::unnest(data, ...)}
+  results
+}
+
+# Check if an installed package version is superior to a specified version
+# Version, pkg: character vector
+is_pkg_version_sup<- function(pkg, version){
+  vv <- as.character(utils::packageVersion(pkg))
+  cc <- utils::compareVersion(vv, version) > 0
+  cc
+}
 
 # Rounding values --------------------------------------
 # Round a vector, conditionnaly rounding
@@ -182,11 +198,17 @@ get_quo_vars_list <- function(data, .enquos){
   res <- map(res, set_empty_to_null )
   res
 }
+# pipe friendly alias of get_quo_vars_list
+select_quo_variables <- function(.enquos, data){
+  get_quo_vars_list(data, .enquos)
+}
+
 
 set_empty_to_null <- function(x){
   if(.is_empty(x)) x <- NULL
   x
 }
+
 
 # Extract variables used in a formula
 #:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -512,10 +534,7 @@ select_numeric_columns <- function(data){
 # Add a class to an object
 #:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 add_class <- function(x, .class){
-  for(.cl in .class){
-    if(!inherits(x, .cl))
-      x <- structure(x, class = c(class(x), .cl))
-  }
+  class(x) <- unique(c(class(x), .class))
   x
 }
 

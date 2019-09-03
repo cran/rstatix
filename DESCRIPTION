@@ -1,7 +1,7 @@
 Package: rstatix
 Type: Package
 Title: Pipe-Friendly Framework for Basic Statistical Tests
-Version: 0.1.2
+Version: 0.2.0
 Authors@R: c(
     person("Alboukadel", "Kassambara", role = c("aut", "cre"), email = "alboukadel.kassambara@gmail.com"))
 Description: Provides a simple and intuitive pipe-friendly framework, coherent with the 'tidyverse' design philosophy, 
@@ -17,8 +17,8 @@ License: GPL-2
 LazyData: TRUE
 Encoding: UTF-8
 Depends: R (>= 3.3.0)
-Imports: stats, utils, tidyr, purrr, broom, rlang, tibble, dplyr (>=
-        0.7.1), magrittr, corrplot, tidyselect, car
+Imports: stats, utils, tidyr, purrr, broom, rlang (>= 0.3.1), tibble,
+        dplyr (>= 0.7.1), magrittr, corrplot, tidyselect, car
 Suggests: knitr, rmarkdown, ggpubr, graphics, emmeans, coin, boot
 URL: https://rpkgs.datanovia.com/rstatix/
 BugReports: https://github.com/kassambara/rstatix/issues
@@ -40,8 +40,8 @@ Collate: 'utilities.R' 'add_significance.R' 'adjust_pvalue.R'
         'shapiro_test.R' 'sign_test.R' 'tukey_hsd.R'
         'welch_anova_test.R' 'wilcox_effsize.R' 'wilcox_test.R'
 NeedsCompilation: no
-Packaged: 2019-08-03 05:08:29 UTC; kassambara
+Packaged: 2019-09-03 21:22:41 UTC; kassambara
 Author: Alboukadel Kassambara [aut, cre]
 Maintainer: Alboukadel Kassambara <alboukadel.kassambara@gmail.com>
 Repository: CRAN
-Date/Publication: 2019-08-03 05:30:03 UTC
+Date/Publication: 2019-09-03 22:10:02 UTC

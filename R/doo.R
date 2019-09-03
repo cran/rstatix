@@ -19,18 +19,24 @@ NULL
 #' @param result the column name to hold the results. Default is ".results.".
 #' @return a data frame
 #' @examples
-#' # Example 1: pipe-friendly t_test().
+#' # Custom function
+#' #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+#' stat_test <- function(data, formula){
+#'   t.test(formula, data) %>%
+#'     tidy()
+#' }
+#' # Example 1: pipe-friendly stat_test().
 #' # Two possibilities of usage are available
 #' #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 #' # Use this
 #' ToothGrowth %>%
 #'   group_by(dose) %>%
-#'   doo(~t_test(data =., len ~ supp))
+#'   doo(~stat_test(data =., len ~ supp))
 #'
 #' # Or this
 #' ToothGrowth %>%
 #'   group_by(dose) %>%
-#'   doo(t_test, len ~ supp)
+#'   doo(stat_test, len ~ supp)
 #'
 #' # Example 2: R base function t.test() (not pipe friendly)
 #' # One possibility of usage
@@ -48,11 +54,37 @@ NULL
 #'    doo(~t.test(len ~ supp, data =.) %>% tidy())
 #'@export
 doo <- function(data, .f, ..., result = ".results."){
+  .results <- data %>%
+    nest() %>%
+    dplyr::ungroup() %>%
+    mutate(data = map(data, droplevels)) %>%
+    mutate(data = map(data, .f, ...))
+  if(inherits(.results$data[[1]], c("data.frame", "tbl_df"))){
+    # Suppress warning such as:
+    #  Binding character and factor vector, coercing into character vector
+    .results <- suppressWarnings(unnest(.results))
+  }
+  else{
+    colnames(.results)[ncol(.results)] <- result
+  }
+  if(is_grouped_df(data)){
+    .groups <- dplyr::group_vars(data)
+    .results <- dplyr::arrange(.results, !!!syms(.groups))
+  }
+  .results
+}
+
+
+
+
+
+# To be removed
+doo_old_version <- function(data, .f, ..., result = ".results."){
   .nested <- data %>%
     nest() %>%
-     mutate(data = map(data, droplevels))
-  .computed <- .nested %>%
-    pull(data) %>%
+    dplyr::ungroup() %>%
+    mutate(data = map(data, droplevels))
+  .computed <- .nested$data %>%
     map(.f, ...)
   .results <- .nested %>%
     select(-data) %>%
@@ -68,4 +100,3 @@ doo <- function(data, .f, ..., result = ".results."){
   }
   .results
 }
-

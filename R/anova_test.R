@@ -27,9 +27,9 @@ NULL
 #'  \code{formula = TP53 ~ cancer_group}.
 #'
 #'  Examples of supported formula include: \itemize{ \item Between-Ss ANOVA
-#'  (independent measures ANOVA): \code{y ~ b1*b2} \item Within-Ss ANOVA (repeated
-#'  measures ANOVA): \code{y ~ w1*w2 + Error(id/(w1*w2))} \item Mixed ANOVA: \code{y ~
-#'  b1*b2*w1 + Error(id/w1)} }
+#'  (independent measures ANOVA): \code{y ~ b1*b2} \item Within-Ss ANOVA
+#'  (repeated measures ANOVA): \code{y ~ w1*w2 + Error(id/(w1*w2))} \item Mixed
+#'  ANOVA: \code{y ~ b1*b2*w1 + Error(id/w1)} }
 #'
 #'  If the formula doesn't contain any within vars, a linear model is directly
 #'  fitted and  passed to the ANOVA function. For repeated designs, the ANOVA
@@ -61,14 +61,16 @@ NULL
 #'  eta-squared) requires correct specification of the observed variables.
 #'@param detailed If TRUE, returns extra information (sums of squares columns,
 #'  intercept row, etc.) in the ANOVA table.
-#'@param x an object of class \code{Anova_test}
-#' @param correction character. Which sphericity correction of the degrees of
-#'   freedom should be reported for the within-subject factors (repeated
-#'   measures). The default is set to \code{"GG"} corresponding to the
-#'   Greenhouse-Geisser correction. Possible values are \code{"GG"}, \code{"HF"}
-#'   (i.e., Hyunh-Feldt correction), \code{"none"} (i.e., no correction) and
-#'   \code{"auto"} (apply automatically GG correction if the sphericity
-#'   assumption is not for within-subject design.
+#'@param x an object of class \code{anova_test}
+#'@param correction character. Used only in repeated measures ANOVA test to
+#'  specify which correction of the degrees of freedom should be reported for
+#'  the within-subject factors. Possible values are:
+#'  \itemize{
+#'  \item{"GG"}: applies Greenhouse-Geisser correction to all within-subjects factors even if the assumption of sphericity is met (i.e., Mauchly's test is not significant, p > 0.05).
+#'  \item{"HF"}: applies Hyunh-Feldt correction to all within-subjects factors even if the assumption of sphericity is met,
+#'  \item{"none"}: returns the ANOVA table without any correction and
+#'  \item{"auto"}: apply automatically GG correction to only within-subjects factors violating the sphericity assumption (i.e., Mauchly's test p-value is significant, p <= 0.05).
+#'  }
 #'@seealso \code{\link{anova_summary}()}, \code{\link{factorial_design}()}
 #'@return return an object of class \code{anova_test} a data frame containing
 #'  the ANOVA table for independent measures ANOVA.
@@ -122,7 +124,7 @@ NULL
 #' anova_test(.my.model)
 #'
 #'
-#' @describeIn anova_test perform anova test
+#'@describeIn anova_test perform anova test
 #'@export
 anova_test <- function(data, formula, dv, wid, between, within, covariate, type = NULL,
                        effect.size = "ges", error = NULL,
@@ -141,7 +143,8 @@ anova_test <- function(data, formula, dv, wid, between, within, covariate, type 
       type = type, effect.size = effect.size, error = error,
       white.adjust = white.adjust, observed = observed, detailed = detailed),
       result = "anova"
-    )
+    ) %>%
+      add_class("grouped_anova_test")
     return(results)
   }
 
@@ -164,20 +167,36 @@ anova_test <- function(data, formula, dv, wid, between, within, covariate, type 
   res.anova
 }
 
-#' @describeIn anova_test extract anova table from an object of class \code{anova_test}
+#' @describeIn anova_test extract anova table from an object of class
+#'   \code{anova_test}. When within-subject factors are present, either
+#'   sphericity corrected or uncorrected degrees of freedom can be reported.
 #' @export
 get_anova_table <- function(x, correction = c("auto", "GG", "HF", "none")){
-  correction.method <- method <- match.arg(correction)
-  if(method == "auto") method = "GG"
-  if(!inherits(x, "anova_test")){
-    stop("An object of class 'anova_test' required")
+  if(!inherits(x, c("anova_test", "grouped_anova_test"))){
+    stop("An object of class 'anova_test' or 'grouped_anova_test' required")
   }
+  correction <- match.arg(correction)
+  if(inherits(x, "grouped_anova_test")){
+    results <- get_anova_table_from_grouped_test(x, correction = correction)
+  }
+  else{
+    results <- get_anova_table_from_simple_test(x, correction = correction)
+  }
+  results
+}
+
+get_anova_table_from_simple_test <- function(x, correction = "auto"){
+  correction.method <- method <- correction
+  if(method == "auto") method = "GG"
   # Independent anova
   if(!inherits(x, "list")){
     return(x)
   }
   if(correction.method == "none"){
-    return(x)
+    res.aov <- x$ANOVA
+    attr(res.aov, "args") <- attr(x, "args")
+    class(res.aov) <- c("anova_test", class(res.aov), "rstatix_test")
+    return(res.aov)
   }
   # repeated/mixed design
   # Get correction table from anova_test
@@ -211,6 +230,15 @@ get_anova_table <- function(x, correction = c("auto", "GG", "HF", "none")){
   res.aov <- res.aov %>% set_attrs(args = .args)
   class(res.aov) <- c("anova_test", class(res.aov), "rstatix_test")
   res.aov
+}
+# Extract tables from grouped ANOVA test
+get_anova_table_from_grouped_test <- function(x, correction = "auto"){
+  if(!("anova" %in% colnames(x))){
+    return(x)
+  }
+  x %>%
+    mutate(anova = map(.data$anova, get_anova_table, correction = correction)) %>%
+    unnest()
 }
 
 #' @rdname anova_test
