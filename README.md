@@ -48,6 +48,17 @@ Key functions
 -   `games_howell_test()`: Performs Games-Howell test, which is used to compare all possible combinations of group differences when the assumption of homogeneity of variances is violated.
 -   `emmeans_test()`: pipe-friendly wrapper arround `emmeans` function to perform pairwise comparisons of estimated marginal means. Useful for post-hoc analyses following up ANOVA/ANCOVA tests.
 
+### Comparing proportions
+
+-   `prop_test()`, `pairwise_prop_test()` and `row_wise_prop_test()`. Performs one-sample and two-samples z-test of proportions. Wrappers around the R base function `prop.test()` but have the advantage of performing pairwise and row-wise z-test of two proportions, the post-hoc tests following a significant chi-square test of homogeneity for 2xc and rx2 contingency tables.
+-   `fisher_test()`, `pairwise_fisher_test()` and `row_wise_fisher_test()`: Fisher's exact test for count data. Wrappers around the R base function `fisher.test()` but have the advantage of performing pairwise and row-wise fisher tests, the post-hoc tests following a significant chi-square test of homogeneity for 2xc and rx2 contingency tables.
+-   `chisq_test()`, `pairwise_chisq_gof_test()`, `pairwise_chisq_test_against_p()`: Performs chi-squared tests, including goodness-of-fit, homogeneity and independence tests.
+-   `binom_test()`, `pairwise_binom_test()`, `pairwise_binom_test_against_p()`: Performs exact binomial test and pairwise comparisons following a significant exact multinomial test. Alternative to the chi-square test of goodness-of-fit-test when the sample.
+-   `multinom_test()`: performs an exact multinomial test. Alternative to the chi-square test of goodness-of-fit-test when the sample size is small.
+-   `mcnemar_test()`: performs McNemar chi-squared test to compare paired proportions. Provides pairwise comparisons between multiple groups.
+-   `cochran_qtest()`: extension of the McNemar Chi-squared test for comparing more than two paired proportions.
+-   `prop_trend_test()`: Performs chi-squared test for trend in proportion. This test is also known as Cochran-Armitage trend test.
+
 ### Comparing variances
 
 -   `levene_test()`: Pipe-friendly framework to easily compute Levene's test for homogeneity of variance across groups. Handles grouped data.
@@ -110,6 +121,7 @@ Extract information from statistical test results. Useful for labelling plots wi
 -   `sample_n_by()`: sample n rows by group from a table
 -   `convert_as_factor(), set_ref_level(), reorder_levels()`: Provides pipe-friendly functions to convert simultaneously multiple variables into a factor variable.
 -   `make_clean_names()`: Pipe-friendly function to make syntactically valid column names (for input data frame) or names (for input vector).
+-   `counts_to_cases()`: converts a contingency table or a data frame of counts into a data frame of individual observations.
 
 Installation and loading
 ------------------------

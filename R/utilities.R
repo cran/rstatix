@@ -317,17 +317,20 @@ as_regexp <- function(x){
 # Create a tidy statistical output
 #:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 # Generic function to create a tidy statistical output
-as_tidy_stat <- function(x, digits = 3){
+as_tidy_stat <- function(x, round.p = TRUE, digits = 3, stat.method = NULL){
   estimate <- estimate1 <- estimate2 <- p.value <-
-    alternative <- NULL
+    alternative <- p <- NULL
   res <- tidy(x)
-  if("method" %in% colnames(res)){
+  if(!is.null(stat.method)){
+    res %<>% mutate(method = stat.method)
+  }
+  else if("method" %in% colnames(res)){
     stat.method <- get_stat_method(x)
     res %<>% mutate(method = stat.method)
   }
   if("p.value" %in% colnames(res)){
-    res %<>% mutate(p.value = signif(p.value, digits)) %>%
-      rename(p = p.value)
+    res<- res %>% rename(p = p.value)
+    if(round.p) res <- res %>% mutate(p = signif(p, digits))
   }
   if("parameter" %in% colnames(res)){
     res <- res %>% rename(df = .data$parameter)
@@ -336,19 +339,25 @@ as_tidy_stat <- function(x, digits = 3){
 }
 
 get_stat_method <- function(x){
-
   if(inherits(x, c("aov", "anova"))){
     return("Anova")
   }
   available.methods <- c(
     "T-test", "Wilcoxon", "Kruskal-Wallis",
     "Pearson", "Spearman", "Kendall", "Sign-Test",
-    "Cohen's d"
+    "Cohen's d", "Chi-squared test"
   )
   used.method <- available.methods %>%
     map(grepl, x$method, ignore.case = TRUE) %>%
     unlist()
-  available.methods %>% extract(used.method)
+  if(sum(used.method) > 0){
+    results <- available.methods %>% extract(used.method)
+  if(length(results) >= 2)
+    results <- paste(results, collapse = " ")
+  }
+  else
+    results <- x$method
+  results
 }
 
 # Check if en object is empty
@@ -545,6 +554,11 @@ prepend_class <- function(x, .class){
   x
 }
 
+remove_class <- function(x, toremove){
+  class(x) <- setdiff(class(x), toremove)
+  x
+}
+
 # Add/set attributes
 #:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 set_attrs <- function (x, ...)
@@ -664,7 +678,12 @@ get_pairwise_comparison_methods <- function(){
     dunn_test = "Dunn test",
     emmeans_test = "Emmeans test",
     tukey_hsd = "Tukey HSD",
-    games_howell_test = "Games Howell"
+    games_howell_test = "Games Howell",
+    prop_test = "Z-Prop test",
+    fisher_test = "Fisher's exact test",
+    chisq_test = "Chi-square test",
+    exact_binom_test = "Exact binomial test",
+    mcnemar_test = "McNemar test"
   )
 }
 
@@ -697,4 +716,20 @@ tidy_squared_matrix <- function(data, value = "value"){
     gather(key = "group1", value = !!value, -.data$group2) %>%
     stats::na.omit() %>% as_tibble() %>%
     select(.data$group1, everything())
+}
+
+
+# Binomial proportion confidence interval
+get_prop_conf_int <- function(x, n, p = 0.5, conf.level = 0.95,
+                              alternative = "two.sided"){
+  .get_conf <- function(x, n, p, alternative, conf.level){
+    res <- stats::binom.test(x, n, p, alternative, conf.level)$conf.int
+    tibble(conf.low = res[1], conf.high = res[2])
+  }
+  results <- list(x = x, n = n, p = p) %>%
+    purrr::pmap(
+      .get_conf, conf.level = conf.level,
+      alternative = alternative
+    ) %>%
+    dplyr::bind_rows()
 }

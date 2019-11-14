@@ -50,37 +50,38 @@ NULL
 #' # One-way ANOVA test
 #' #:::::::::::::::::::::::::::::::::::::::::
 #' anov <- df %>% anova_test(len ~ dose)
-#' get_test_label(anov, detailed = TRUE)
+#' get_test_label(anov, detailed = TRUE, type = "text")
 #'
 #' # Two-way ANOVA test
 #' #:::::::::::::::::::::::::::::::::::::::::
 #' anov <- df %>% anova_test(len ~ supp*dose)
-#' get_test_label(anov, detailed = TRUE, description = "Two Way ANOVA")
+#' get_test_label(anov, detailed = TRUE, type = "text",
+#'    description = "Two Way ANOVA")
 #'
 #'
 #' # Kruskal-Wallis test
 #' #:::::::::::::::::::::::::::::::::::::::::
 #' kruskal<- df %>% kruskal_test(len ~ dose)
-#' get_test_label(kruskal, detailed = TRUE)
+#' get_test_label(kruskal, detailed = TRUE, type = "text")
 #'
 #' # Wilcoxon test
 #' #:::::::::::::::::::::::::::::::::::::::::
 #' # Unpaired test
 #' wilcox <- df %>% wilcox_test(len ~ supp)
-#' get_test_label(wilcox, detailed = TRUE)
+#' get_test_label(wilcox, detailed = TRUE, type = "text")
 #'# Paired test
 #' wilcox <- df %>% wilcox_test(len ~ supp, paired = TRUE)
-#' get_test_label(wilcox, detailed = TRUE)
+#' get_test_label(wilcox, detailed = TRUE, type = "text")
 #'
 #' # T test
 #' #:::::::::::::::::::::::::::::::::::::::::
 #' ttest <- df %>% t_test(len ~ dose)
-#' get_test_label(ttest, detailed = TRUE)
+#' get_test_label(ttest, detailed = TRUE, type = "text")
 #'
 #'
 #' # Pairwise comparisons labels
 #' #:::::::::::::::::::::::::::::::::::::::::
-#' get_pwc_label(ttest)
+#' get_pwc_label(ttest, type = "text")
 #'
 #'
 #' # Create test labels
@@ -89,12 +90,13 @@ NULL
 #'   statistic.text = "F", statistic = 71.82,
 #'   parameter = "4, 294",
 #'   p = "<0.0001",
-#'   description = "ANOVA"
+#'   description = "ANOVA",
+#'   type = "text"
 #' )
 #'
 #' @describeIn get_test_label Extract label from pairwise comparisons.
 #' @export
-get_pwc_label <- function(stat.test, type = c("text", "expression")){
+get_pwc_label <- function(stat.test, type = c("expression", "text")){
   methods <- get_pairwise_comparison_methods()
   stat.test %>% stop_ifnot_class(names(methods))
   type <- match.arg(type)
@@ -106,13 +108,13 @@ get_pwc_label <- function(stat.test, type = c("text", "expression")){
     p.adjust.method <- "None"
   }
   if(type == "text"){
-    paste0("Pairwise comparisons: ", stat.method, "; p-value adjustment: ", p.adjust.method)
+    paste0("pwc: ", stat.method, "; p.adjust: ", p.adjust.method)
   }
   else if(type == "expression"){
     substitute(
       expr = paste(
-        "Pairwise comparisons: ", bold(stat.method),
-          "; p-value adjustment: ", bold(p.adjust.method)
+        "pwc: ", bold(stat.method),
+          "; p.adjust: ", bold(p.adjust.method)
         ),
       env = list(stat.method = stat.method, p.adjust.method = p.adjust.method)
     )
@@ -122,7 +124,7 @@ get_pwc_label <- function(stat.test, type = c("text", "expression")){
 #' @describeIn get_test_label Extract labels for statistical tests.
 #' @export
 get_test_label <- function(stat.test, description = NULL, p.col = "p",
-                           type = c("text", "expression"),
+                           type = c("expression", "text"),
                            correction = c("auto", "GG", "HF", "none"), row = NULL, detailed = FALSE){
   type = match.arg(type)
   allowed.tests <- c(
@@ -130,7 +132,12 @@ get_test_label <- function(stat.test, description = NULL, p.col = "p",
     kruskal_test = "Kruskal-Wallis",
     friedman_test = "Friedman test",
     anova_test = "Anova",
-    welch_anova_test = "Welch ANOVA"
+    welch_anova_test = "Welch ANOVA",
+    chisq_test = "Chi-square test",
+    exact_multinom_test = "Exact multinomial test",
+    exact_binom_test = "Exact binomial test",
+    cochran_qtest = "Cochran Q test",
+    chisq_trend_test = "Chi-square trend test"
   )
   stop_ifnot_class(stat.test, .class = names(allowed.tests))
   is_anova_test <- inherits(stat.test, "anova_test")
@@ -201,7 +208,7 @@ get_test_label <- function(stat.test, description = NULL, p.col = "p",
 #' @export
 create_test_label <- function(
   statistic.text, statistic, p, parameter = NA, description = NULL, n = NA, effect.size = NA, effect.size.text = NA,
-  type = c("text", "expression"), detailed = FALSE)
+  type = c("expression", "text"), detailed = FALSE)
 {
   type <- match.arg(type)
   if(!is.null(description)){
@@ -263,11 +270,16 @@ create_test_label.expression <- function(
   }
   # Create label
   statistic <- round_value(statistic, 2)
+  equal <- " = "
+  if(is.na(statistic))
+    statistic.text <- equal <- statistic <- ""
+  else
+    statistic <- paste0(statistic, ", ")
   env <- as.list(environment())
   if(detailed){
     substitute(
       expr = paste(
-        description, statistic.text, parameter, " = ", statistic, ", ",
+        description, statistic.text, parameter, equal, statistic,
         italic("p"), " = ", p, effect.size, n
       ),
       env = env
@@ -290,10 +302,13 @@ create_test_label.text <- function(description, statistic.text,
   else effect.size <- paste0(", ", effect.size.text, " = ", effect.size)
   if(is.na(n)) n <- ""
   else n <- paste0(", ", "n", " = ", n)
+  if(!is.na(statistic)){
+    statistics <- paste0(statistic.text, parameter, " = ", round_value(statistic, 2), ", ")
+  }
+  else statistics <- ""
   if(detailed){
     paste0(
-      description,
-      statistic.text, parameter, " = ", round_value(statistic, 2), ", ",
+      description, statistics,
       "p", " = ", p, effect.size, n
     )
   }
@@ -306,7 +321,7 @@ create_test_label.text <- function(description, statistic.text,
 # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 # Statical test text: F, t, W, V, X2, -------------------------------------------
-get_statistic_text <- function(stat.test, type = c("text", "expression")){
+get_statistic_text <- function(stat.test, type = c("expression", "text")){
   type <- match.arg(type)
   args <- attr(stat.test, "args")
   stat.method <- args$method
@@ -332,6 +347,11 @@ get_statistic_text <- function(stat.test, type = c("text", "expression")){
       friedman_test = quote(italic(chi)^2),
       anova_test = quote(italic("F")),
       welch_anova_test = quote(italic("F")),
+      chisq_test = quote(italic(chi)^2),
+      mcnemar_test = quote(italic(chi)^2),
+      prop_test = quote(italic(chi)^2),
+      cochran_qtest = quote(italic(chi)^2),
+      chisq_trend_test = quote(italic(chi)^2),
       quote(italic("Stat"))
     )
   }
@@ -350,6 +370,11 @@ get_statistic_text <- function(stat.test, type = c("text", "expression")){
       friedman_test = "X2",
       anova_test = "F",
       welch_anova_test = "F",
+      chisq_test = "X2",
+      mcnemar_test = "X2",
+      prop_test = "X2",
+      cochran_qtest = "X2",
+      chisq_trend_test = "X2",
       "Stat"
     )
   }
@@ -425,7 +450,15 @@ get_description <- function(stat.test){
     welch_anova_test = "Welch Anova",
     kruskal_test = "Kruskal-Wallis",
     friedman_test = "Friedman test",
-    cor_test = "Correlation"
+    cor_test = "Correlation",
+    prop_test = "Z-Prop test",
+    fisher_test = "Fisher's exact test",
+    chisq_test = "Chi-square test",
+    exact_multinom_test = "Exact multinomial test",
+    exact_binom_test = "Exact binomial test",
+    mcnemar_test = "McNemar test",
+    cochran_qtest = "Cochran Q test",
+    chisq_trend_test = "Chi-square trend test"
   )
   args <- attr(stat.test, "args")
   stat.method <- args$method
@@ -433,7 +466,7 @@ get_description <- function(stat.test){
     description <- tests[stat.method]
   }
   else{
-    description  <- ""
+    description  <- stat.method
   }
   as.character(description)
 }
