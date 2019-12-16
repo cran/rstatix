@@ -64,6 +64,7 @@ identify_outliers <- function(data, ..., variable = NULL){
   if(is_grouped_df(data)){
     results <- data %>%
       doo(identify_outliers, ..., variable = variable)
+    if(nrow(results) == 0) results <- as.data.frame(results)
     return(results)
   }
 
@@ -80,6 +81,7 @@ identify_outliers <- function(data, ..., variable = NULL){
       is.extreme = is_extreme(values)
       ) %>%
     filter(is.outlier == TRUE)
+  if(nrow(results) == 0) results <- as.data.frame(results)
   results
 }
 

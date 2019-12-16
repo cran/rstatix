@@ -68,10 +68,10 @@ base function \code{\link[stats]{binom.test}} that returns a dataframe as a
 result.
 
 \item \code{pairwise_binom_test}: performs pairwise comparisons (binomial test)
-following a significan exact multinomial test.
+following a significant exact multinomial test.
 
 \item \code{pairwise_binom_test_against_p}: performs pairwise comparisons (binomial test)
-following a significan exact multinomial test for given probabilities.
+following a significant exact multinomial test for given probabilities.
 }}
 
 \examples{
@@ -104,7 +104,7 @@ pairwise_binom_test(tulip, p.adjust.method = "bonferroni")
 
 # Question 2: comparing observed to expected proportions
 # this is a goodness-of-fit test
-expected.p <- c(red = 1/2, yellow = 1/3, white = 1/6)
+expected.p <- c(red = 0.5, yellow = 0.33, white = 0.17)
 res <- multinom_test(tulip, expected.p)
 res
 attr(res, "descriptives")

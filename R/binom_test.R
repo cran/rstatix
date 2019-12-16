@@ -63,7 +63,7 @@ NULL
 #'
 #' # Question 2: comparing observed to expected proportions
 #' # this is a goodness-of-fit test
-#' expected.p <- c(red = 1/2, yellow = 1/3, white = 1/6)
+#' expected.p <- c(red = 0.5, yellow = 0.33, white = 0.17)
 #' res <- multinom_test(tulip, expected.p)
 #' res
 #' attr(res, "descriptives")
@@ -96,7 +96,7 @@ binom_test <- function(x, n, p = 0.5,
 }
 
 #' @describeIn binom_test performs pairwise comparisons (binomial test)
-#'   following a significan exact multinomial test.
+#'   following a significant exact multinomial test.
 #' @export
 pairwise_binom_test <- function(x, p.adjust.method = "holm", alternative = "two.sided",
                                 conf.level = 0.95){
@@ -131,7 +131,7 @@ pairwise_binom_test <- function(x, p.adjust.method = "holm", alternative = "two.
 }
 
 #' @describeIn binom_test performs pairwise comparisons (binomial test)
-#'   following a significan exact multinomial test for given probabilities.
+#'   following a significant exact multinomial test for given probabilities.
 #' @export
 pairwise_binom_test_against_p <- function(x, p = rep(1/length(x), length(x)), p.adjust.method = "holm",
                                           alternative = "two.sided", conf.level = 0.95){
