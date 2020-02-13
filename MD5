@@ -1,6 +1,6 @@
-f5f6fe71dc325a1edccca48afe6097c4 *DESCRIPTION
+1214f037401858b17c2ca51522fb1745 *DESCRIPTION
 017e2a412c79f4d87aaaf2e4a5d27cfe *NAMESPACE
-b5a136b927b2aafe7a2f0a50f494c167 *NEWS.md
+e3a5e7b2284c224c477da6632b625989 *NEWS.md
 766fafd02b01388e1575191e7c9c2f02 *R/add_significance.R
 2a23a6f0c61e162dada97e60a34bc219 *R/adjust_pvalue.R
 cc92754096d64515abbe058f7e37e3b7 *R/anova_summary.R
@@ -10,11 +10,11 @@ cc92754096d64515abbe058f7e37e3b7 *R/anova_summary.R
 8310e8fe53005efcea8853cd94fc8919 *R/box_m.R
 996f27adc61c098fc9e1df916990313e *R/chisq_test.R
 df8fab708fb382ecb1c456bf863ee43a *R/cochran_qtest.R
-4d01cbce49ceee3995fa82c4d84dbb4d *R/cohens_d.R
+0a2dda19718959590e3807443c440b08 *R/cohens_d.R
 bb1c918e4d0cdd3ddfa0353b682dd469 *R/cor_as_symbols.R
 2d62b214a65bc7a0a0260508b513f38a *R/cor_mark_significant.R
 ab8dd210b306c5c83602f8a027ec7b79 *R/cor_mat.R
-7b9ae9c47b2a99444e6cadfefe04333f *R/cor_plot.R
+fe1cc1281a2cc604b0316580a9b62d83 *R/cor_plot.R
 8350cc882a0bf4383722417aea0efc8f *R/cor_reorder.R
 e1ea9f8048436d1d15ed381c077de9c0 *R/cor_reshape.R
 74f9cc86893a92bf5a4a8f34bea01dbe *R/cor_select.R
@@ -25,7 +25,7 @@ f648a46129eaa297b25fd2719358004a *R/doo.R
 38f80d1997e24a6eba9f0b44221dcd87 *R/dunn_test.R
 6de5094aa5603a00cbb043975711dffc *R/emmeans_test.R
 e3231b7384bf86cf64f4628b40ef0b5a *R/eta_squared.R
-03327fc2041ede41613820163dfa17d7 *R/factorial_design.R
+9d5f33d40a5c24bacc1d87d4b7be8100 *R/factorial_design.R
 8e05326cc8f25d112411331bf8dea853 *R/factors.R
 33191d09834add1a033b182c0a10d468 *R/fisher_test.R
 3a54bbb536f7a9d53a8b7eeef886cedc *R/freq_table.R
@@ -56,7 +56,7 @@ d007ab4b8df2b0469607582f9512f801 *R/pull_triangle.R
 c8b884e4b05ede79890e56c70c167767 *R/shapiro_test.R
 71ec673c964a708243fddfbb0f074fb0 *R/sign_test.R
 6cdbe0bfe3500ad5d18976ba51c8430f *R/t_test.R
-ca8bd3de074901750c39bf6afabe380a *R/tukey_hsd.R
+87c933bbc59b9acb4af0f988fde2d551 *R/tukey_hsd.R
 b089356fac75ae5eaec2ebf39449c2fa *R/utilities.R
 798acce02e112786e7377b1d72f2e54e *R/utilities_two_sample_test.R
 7a8bed3a365425332d890fb7eea43707 *R/welch_anova_test.R
@@ -73,11 +73,11 @@ a87a2fb7ccb20c762d78940df6d283d4 *man/as_cor_mat.Rd
 5d0161443e31fdd8f0f222189217abe9 *man/box_m.Rd
 95a96b0908094b6302ebb63753b06b7b *man/chisq_test.Rd
 a4e6f30d831c859087756467bfdf4513 *man/cochran_qtest.Rd
-7e0a06087ebce697d0e9dbffa616c2c5 *man/cohens_d.Rd
+6dc165096a79379a9564f6eeb8e1073e *man/cohens_d.Rd
 56374947841d8ac5c88267f4f939c293 *man/cor_as_symbols.Rd
 600362c9aea878abb1ec90b34bd8ca3d *man/cor_mark_significant.Rd
 e2efc109fcb604730ea735741eab3176 *man/cor_mat.Rd
-8c5b08d66d71ea24314c4f8f08ad2a41 *man/cor_plot.Rd
+b11c985e558c5ee184ad4bff03d50cb4 *man/cor_plot.Rd
 132087a5d673f8cf467539ebae8182a7 *man/cor_reorder.Rd
 86e2adfb320cacc4503398a6392941e2 *man/cor_reshape.Rd
 3ff5d235dd3b844bb01a18b27cd148c5 *man/cor_select.Rd
@@ -88,7 +88,7 @@ c828eda713217a6ed2c4a4cfed1f91b2 *man/doo.Rd
 0fb68e931af7ce8ead70b85059efef1f *man/dunn_test.Rd
 8fcf694774b6f984099e58cf6c898e5b *man/emmeans_test.Rd
 9016a7f170be53d8aa3ec46a97d68ff5 *man/eta_squared.Rd
-e27858f344c1873a210e35391cc32f40 *man/factorial_design.Rd
+a8cc2066ce655796674312adb3f7880e *man/factorial_design.Rd
 1e2b39ea95a01570ca6f64ffe850ffd0 *man/factors.Rd
 487f0f668325f217ea705547afc63a20 *man/fisher_test.Rd
 96e567c701e7c27b8e3b23158be398ad *man/freq_table.Rd

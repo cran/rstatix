@@ -1,7 +1,7 @@
 Package: rstatix
 Type: Package
 Title: Pipe-Friendly Framework for Basic Statistical Tests
-Version: 0.3.1
+Version: 0.4.0
 Authors@R: c(
     person("Alboukadel", "Kassambara", role = c("aut", "cre"), email = "alboukadel.kassambara@gmail.com"))
 Description: Provides a simple and intuitive pipe-friendly framework, coherent with the 'tidyverse' design philosophy, 
@@ -46,8 +46,8 @@ Collate: 'utilities.R' 'add_significance.R' 'adjust_pvalue.R'
         'wilcox_test.R'
 Language: en-US
 NeedsCompilation: no
-Packaged: 2019-12-15 21:51:45 UTC; kassambara
+Packaged: 2020-02-13 07:21:46 UTC; kassambara
 Author: Alboukadel Kassambara [aut, cre]
 Maintainer: Alboukadel Kassambara <alboukadel.kassambara@gmail.com>
 Repository: CRAN
-Date/Publication: 2019-12-16 09:30:03 UTC
+Date/Publication: 2020-02-13 07:40:03 UTC
