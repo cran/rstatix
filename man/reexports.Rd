@@ -9,6 +9,7 @@
 \alias{filter}
 \alias{group_by}
 \alias{select}
+\alias{desc}
 \alias{drop_na}
 \alias{gather}
 \alias{spread}
@@ -23,11 +24,11 @@ These objects are imported from other packages. Follow the links
 below to see their documentation.
 
 \describe{
-  \item{broom}{\code{\link[broom]{tidy}}, \code{\link[broom]{augment}}}
+  \item{broom}{\code{\link[broom]{augment}}, \code{\link[broom]{tidy}}}
 
   \item{car}{\code{\link[car]{Anova}}, \code{\link[car]{Manova}}}
 
-  \item{dplyr}{\code{\link[dplyr]{mutate}}, \code{\link[dplyr]{filter}}, \code{\link[dplyr]{group_by}}, \code{\link[dplyr]{select}}}
+  \item{dplyr}{\code{\link[dplyr]{desc}}, \code{\link[dplyr]{filter}}, \code{\link[dplyr]{group_by}}, \code{\link[dplyr]{mutate}}, \code{\link[dplyr]{select}}}
 
   \item{magrittr}{\code{\link[magrittr]{\%>\%}}}
 

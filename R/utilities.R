@@ -20,7 +20,7 @@
 #' @importFrom dplyr tibble
 #' @importFrom dplyr everything
 #' @importFrom dplyr left_join
-#' @importFrom purrr map
+#' @importFrom purrr map map2
 #' @importFrom broom tidy
 #' @importFrom stats t.test
 #' @importFrom rlang sym
@@ -465,7 +465,9 @@ matrix_to_tibble <- function(x){
 
 # Replace empty space as na
 replace_empty_by <- function(x, replacement = NA){
-  x %>% dplyr::mutate_all(
+  x %>%
+    keep_only_tbl_df_classes() %>%
+    dplyr::mutate_all(
       function(x){x[x==""] <- replacement; x}
       )
 }
@@ -532,6 +534,9 @@ get_existing_dot_vars <- function(data, ...){
 }
 
 
+
+
+
 # Select numeric columns
 #:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 select_numeric_columns <- function(data){
@@ -543,7 +548,7 @@ select_numeric_columns <- function(data){
 # Add a class to an object
 #:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 add_class <- function(x, .class){
-  class(x) <- unique(c(class(x), .class))
+  class(x) <- unique(c(.class, class(x)))
   x
 }
 
@@ -556,6 +561,14 @@ prepend_class <- function(x, .class){
 
 remove_class <- function(x, toremove){
   class(x) <- setdiff(class(x), toremove)
+  x
+}
+
+keep_only_tbl_df_classes <- function(x){
+  toremove <- setdiff(class(x), c("tbl_df", "tbl", "data.frame"))
+  if(length(toremove) > 0){
+    x <- remove_class(x, toremove)
+  }
   x
 }
 

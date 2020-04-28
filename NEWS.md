@@ -1,3 +1,31 @@
+# rstatix 0.5.0
+  
+## New features
+   
+- New functions added for easy data frame manipulation. These functions are internally used in the `rstatix` and the `ggpubr` package and makes it easy to program with tidyverse packages using non standard evaluation.
+      - df_select
+      - df_arrange
+      - df_group_by
+      - df_nest_by
+      - df_split_by
+      - df_unite
+      - df_get_var_names
+      - df_label_both
+      - df_label_value
+
+## Minor changes
+
+- Now, in `freq_table()` the option `na.rm` removes only missing values in the variables used to create the frequency table (@JuhlinF, [#25](https://github.com/kassambara/rstatix/issues/25)).
+- Missing values are now correctly handled in `anova_test()` (@benediktclaus, [#31](https://github.com/kassambara/rstatix/issues/31))
+- Maintenance for adapting to the future dplyr 1.0.0 version [#32](https://github.com/kassambara/rstatix/issues/32)
+  
+## Bug fixes
+  
+- An informative message is now displayed when users try to apply Hedge's correction when computing the Cohen's D for one sample test (@GegznaV, [#36](https://github.com/kassambara/rstatix/issues/36)).
+- Bug fixes in the `games_howell_test()` function : the t-statistic is now calculated using the **absolute** mean difference between groups (@GegznaV, [#37](https://github.com/kassambara/rstatix/issues/37)).
+- x position is now correctly computed when when making custom comparisons (@barrel0luck, [#28](https://github.com/kassambara/rstatix/issues/28)).
+   
+   
 # rstatix 0.4.0
 
 ## New features
