@@ -15,6 +15,10 @@ levene_test(data, formula, center = median)
 mean gives the original Levene's test; the default, median, provides a more
 robust test.}
 }
+\value{
+a data frame with the following columns: df1, df2
+  (df.residual), statistic and p.
+}
 \description{
 Provide a pipe-friendly framework to easily compute Levene's
   test for homogeneity of variance across groups.

@@ -94,6 +94,14 @@ NULL
 #'   type = "text"
 #' )
 #'
+#'
+#' # Extract infos
+#' #:::::::::::::::::::::::::::::::::::::::::
+#' stat.test <- df %>% t_test(len ~ dose)
+#' get_n(stat.test)
+#' get_description(stat.test)
+#'
+#'
 #' @describeIn get_test_label Extract label from pairwise comparisons.
 #' @export
 get_pwc_label <- function(stat.test, type = c("expression", "text")){
@@ -421,28 +429,40 @@ get_df <- function(stat.test){
 }
 
 # Sample count-------------------------------------------------
+#' @describeIn get_test_label Extracts sample counts (n) from an rstatix test outputs. Returns a numeric vector.
+#' @export
 get_n <- function(stat.test){
   if(inherits(stat.test, "anova_test")){
     .args <- attr(stat.test, "args")
     wid <- .args$wid
     if(is.null(wid)) n <- nrow(.args$data)
     else n <- .args$data %>% pull(!!wid) %>% unique() %>% length()
-    stat.test %<>% mutate(n = !!n)
+    stat.test$n <- n
+  }
+  else if(inherits(stat.test, "grouped_anova_test")){
+    # compute sample size of data subsets
+    .args <- attr(stat.test, "args")
+    stat.test$n <- .args$data %>%
+      dplyr::summarise(n = dplyr::n()) %>%
+      pull(.data$n)
   }
   n.cols <- c("n", "n1", "n2")
   if(!any(n.cols %in% colnames(stat.test))){
     return(NA)
   }
   if("n" %in% colnames(stat.test)){
-    stat.test$n
+    n <- stat.test$n
   }
   else if(all(c("n1", "n2") %in% colnames(stat.test))){
-    if(is_paired(stat.test)) stat.test$n1
-    else stat.test$n1 + stat.test$n2
+    if(is_paired(stat.test)) n <- stat.test$n1
+    else n <- stat.test$n1 + stat.test$n2
   }
+  n
 }
 
 # Statistical test description ---------------------------------
+#' @describeIn get_test_label Extracts the description of an rstatix test outputs. Returns a character vector.
+#' @export
 get_description <- function(stat.test){
   tests <- c(
     t_test = "T test",
@@ -466,6 +486,7 @@ get_description <- function(stat.test){
     chisq_trend_test = "Chi-square trend test"
   )
   args <- attr(stat.test, "args")
+  if(is.null(args)) return("")
   stat.method <- args$method
   if(stat.method %in% names(tests)){
     description <- tests[stat.method]

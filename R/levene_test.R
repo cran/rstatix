@@ -13,6 +13,8 @@ NULL
 #' @param center The name of a function to compute the center of each group;
 #'   mean gives the original Levene's test; the default, median, provides a more
 #'   robust test.
+#' @return a data frame with the following columns: df1, df2
+#'   (df.residual), statistic and p.
 #'
 #' @examples
 #' # Prepare the data
@@ -41,11 +43,11 @@ levene_test <- function(data, formula, center = median){
     results <- car::leveneTest(formula, data, center = center)
   }
   results <- broom::tidy(results) %>%
-    rename(df1 = .data$df)
-  results <- results %>%
-    add_column(df2 = results$df1[2], .after = "df1") %>%
-    filter(.data$term != "") %>%
-    select(.data$df1, .data$df2, .data$statistic, .data$p.value) %>%
-    rename(p = .data$p.value)
+    rename(
+      df1 = .data$df,
+      df2 = .data$df.residual,
+      p = .data$p.value
+      ) %>%
+    select(.data$df1, .data$df2, .data$statistic, .data$p)
   results
 }
