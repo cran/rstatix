@@ -79,7 +79,7 @@ two_sample_test <- function(data, formula, method = "t.test", ref.group = NULL, 
     grp1 <- "1"
     grp2 <- "null model"
     outcome.values <- data %>% pull(!!outcome)
-    n <- length(outcome.values)
+    n <- sum(!is.na(outcome.values))
     test.args <- list(x = outcome.values, ...)
   }
   # Two sample mean comparisons ========================
@@ -93,8 +93,8 @@ two_sample_test <- function(data, formula, method = "t.test", ref.group = NULL, 
     grp2 <- group.levels[2]
     x <- outcome.values[group.values == grp1]
     y <- outcome.values[group.values == grp2]
-    n1 <- length(x)
-    n2 <- length(y)
+    n1 <- sum(!is.na(x))
+    n2 <- sum(!is.na(y))
     test.args <- list(x = x, y = y, ...)
   }
 

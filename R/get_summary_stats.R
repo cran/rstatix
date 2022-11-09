@@ -55,7 +55,7 @@ get_summary_stats <- function(
   type = match.arg(type)
   if(is_grouped_df(data)){
     results <- data %>%
-      doo(get_summary_stats, ..., type = type, show = show)
+      doo(get_summary_stats, ..., type = type, show = show, probs = probs)
     return(results)
   }
   data <- data %>% select_numeric_columns()
@@ -68,6 +68,7 @@ get_summary_stats <- function(
   data <- data %>%
     gather(key = "variable", value = ".value.") %>%
     filter(!is.na(.value.)) %>%
+    dplyr::mutate(variable = factor(.data$variable, levels = vars)) %>%
     group_by(variable)
   results <- switch(
     type,
@@ -86,6 +87,7 @@ get_summary_stats <- function(
     max = max_(data),
     full_summary(data)
   ) %>%
+    dplyr::ungroup() %>%
     dplyr::mutate_if(is.numeric, round, digits = 3)
 
   if(!is.null(show)){

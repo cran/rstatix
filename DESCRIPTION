@@ -1,7 +1,7 @@
 Package: rstatix
 Type: Package
 Title: Pipe-Friendly Framework for Basic Statistical Tests
-Version: 0.7.0
+Version: 0.7.1
 Authors@R: c(
     person("Alboukadel", "Kassambara", role = c("aut", "cre"), email = "alboukadel.kassambara@gmail.com"))
 Description: Provides a simple and intuitive pipe-friendly framework, coherent with the 'tidyverse' design philosophy, 
@@ -14,7 +14,6 @@ Description: Provides a simple and intuitive pipe-friendly framework, coherent w
     'Cramer V' for the association between categorical variables. 
     The package contains helper functions for identifying univariate and multivariate outliers, assessing normality and homogeneity of variances.
 License: GPL-2
-LazyData: TRUE
 Encoding: UTF-8
 Depends: R (>= 3.3.0)
 Imports: stats, utils, tidyr (>= 1.0.0), purrr, broom (>= 0.7.4), rlang
@@ -46,8 +45,8 @@ Collate: 'utilities.R' 'add_significance.R' 'adjust_pvalue.R'
         'welch_anova_test.R' 'wilcox_effsize.R' 'wilcox_test.R'
 Language: en-US
 NeedsCompilation: no
-Packaged: 2021-02-13 11:06:55 UTC; kassambara
+Packaged: 2022-11-09 00:57:53 UTC; kassambara
 Author: Alboukadel Kassambara [aut, cre]
 Maintainer: Alboukadel Kassambara <alboukadel.kassambara@gmail.com>
 Repository: CRAN
-Date/Publication: 2021-02-13 11:30:02 UTC
+Date/Publication: 2022-11-09 08:40:06 UTC
