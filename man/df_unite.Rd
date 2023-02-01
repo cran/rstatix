@@ -31,7 +31,7 @@ commas.}
 
 \item{remove}{If \code{TRUE}, remove input columns from output data frame.}
 
-\item{na.rm}{If \code{TRUE}, missing values will be remove prior to uniting
+\item{na.rm}{If \code{TRUE}, missing values will be removed prior to uniting
 each value.}
 }
 \description{
@@ -41,12 +41,12 @@ Paste together multiple columns into one. Wrapper arround
 }
 \section{Functions}{
 \itemize{
-\item \code{df_unite}: Unite multiple columns into one.
+\item \code{df_unite()}: Unite multiple columns into one.
 
-\item \code{df_unite_factors}: Unite factor columns. First, order factors levels then
+\item \code{df_unite_factors()}: Unite factor columns. First, order factors levels then
 merge them into one column. The output column is a factor.
-}}
 
+}}
 \examples{
 # Non standard evaluation
 head(ToothGrowth) \%>\%
