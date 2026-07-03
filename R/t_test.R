@@ -42,6 +42,22 @@ NULL
 #'
 #'@param detailed logical value. Default is FALSE. If TRUE, a detailed result is
 #'  shown.
+#'@param id (optional) character string specifying the column that contains the
+#'  sample/subject identifier, used only for a \strong{paired} test
+#'  (\code{paired = TRUE}). When supplied, observations of the two compared
+#'  groups are matched by \code{id} (instead of by row order), and only subjects
+#'  present in both groups are used. For more than two groups, the matching is
+#'  done independently for each pairwise comparison, so different comparisons can
+#'  be based on different numbers of pairs (per-comparison pairwise deletion).
+#'  This makes paired tests work when some observations are missing or the groups
+#'  have unequal sizes. The default (\code{id = NULL}) keeps the previous
+#'  behaviour (groups paired in row order).
+#'@param error.as.na logical. If \code{TRUE}, a comparison that cannot be
+#'  computed (for example a group with fewer than two observations, or data that
+#'  are essentially constant) returns an \code{NA} result row with a warning
+#'  instead of stopping with an error; the other comparisons (or groups, for a
+#'  grouped analysis) are still computed. Default is \code{FALSE} (the comparison
+#'  errors as before).
 #'@param ... other arguments to be passed to the function
 #'  \code{\link[stats]{t.test}}.
 #'
@@ -64,14 +80,28 @@ NULL
 #'  of p-values and adjusted p-values, respectively. \item \code{estimate}:
 #'  estimate of the effect size. It corresponds to the estimated mean or
 #'  difference in means depending on whether it was a one-sample test or a
-#'  two-sample test. \item \code{estimate1, estimate2}: show the mean values of
-#'  the two groups, respectively, for independent samples t-tests. \item
-#'  \code{alternative}: a character string describing the alternative
-#'  hypothesis. \item \code{conf.low,conf.high}: Lower and upper bound on a
-#'  confidence interval. }
+#'  two-sample test. For a two-sample test the difference is taken as
+#'  \code{estimate1 - estimate2}, i.e. \code{mean(group1) - mean(group2)}
+#'  (following \code{\link[stats]{t.test}}). \item \code{estimate1, estimate2}:
+#'  show the mean values of the two groups, respectively, for independent
+#'  samples t-tests. \item \code{alternative}: a character string describing the
+#'  alternative hypothesis. \item \code{conf.low,conf.high}: Lower and upper
+#'  bound on a confidence interval. }
 #'
 #'  The \strong{returned object has an attribute called args}, which is a list
 #'  holding the test arguments.
+#'
+#'@note On the sign of \code{statistic} and \code{estimate} when a
+#'  \code{ref.group} is specified: the reference group is taken as \code{group1}
+#'  and the other group as \code{group2}, and the difference is computed as
+#'  \code{estimate = mean(group1) - mean(group2) = mean(ref.group) -
+#'  mean(other)} (the \code{\link[stats]{t.test}} convention). A positive
+#'  \code{statistic}/\code{estimate} therefore means the value is higher in the
+#'  reference group. To orient results so that a positive sign means "higher in
+#'  the non-reference group", flip the sign yourself, e.g.
+#'  \code{mutate(statistic = -statistic, estimate = -estimate)}.
+#'@seealso \code{\link{rstatix-programming}} for building the formula from
+#'  variable names held in strings (e.g. \code{reformulate()}).
 #' @examples
 #' # Load data
 #' #:::::::::::::::::::::::::::::::::::::::
@@ -120,7 +150,7 @@ t_test <- function(
   data, formula, comparisons = NULL, ref.group = NULL,
   p.adjust.method = "holm",
   paired = FALSE, var.equal = FALSE, alternative = "two.sided",
-  mu = 0, conf.level = 0.95, detailed = FALSE
+  mu = 0, conf.level = 0.95, detailed = FALSE, id = NULL, error.as.na = FALSE
 )
 {
   env <- as.list(environment())
@@ -133,6 +163,11 @@ t_test <- function(
   outcome <- get_formula_left_hand_side(formula)
   group <- get_formula_right_hand_side(formula)
   number.of.groups <- guess_number_of_groups(data, group)
+  if(!is.null(id) && !is.null(ref.group) && ref.group %in% c("all", ".all.")){
+    stop("`id` (paired matching) is not supported with ref.group = 'all': ",
+         "pairing subjects against the pooled grand-mean group is not defined.",
+         call. = FALSE)
+  }
   if(number.of.groups > 2 & !is.null(ref.group)){
     if(ref.group %in% c("all", ".all.")){
       params$data <- create_data_with_all_ref_group(data, outcome, group)
@@ -233,15 +268,10 @@ pairwise_t_test_psd <- function(
       purrr::map_dfr(~ results %>% filter(group1 %in% .x & group2 %in% .x) )
   }
 
-  p <- p.adj <- NULL
   results <- results %>%
     adjust_pvalue(method = p.adjust.method) %>%
     add_significance("p") %>%
-    add_significance("p.adj") %>%
-    mutate(
-      p = signif(p, digits = 3),
-      p.adj = signif(p.adj, digits = 3)
-    )
+    add_significance("p.adj")
   if(!detailed) results <- remove_details(results, method = "t.test")
   results
 }

@@ -17,6 +17,10 @@ NULL
 #'  eta-squared) requires correct specification of the observed variables.
 #'@param detailed If TRUE, returns extra information (sums of squares columns,
 #'  intercept row, etc.) in the ANOVA table.
+#'@param ci confidence level for a confidence interval on partial eta squared.
+#'  If a number between 0 and 1 (e.g. \code{0.95}) and \code{effect.size}
+#'  includes \code{"pes"}, adds \code{conf.low}/\code{conf.high} columns computed
+#'  from the noncentral F distribution. Default \code{NULL} (no interval).
 #'@param object an object of returned by either \code{\link[car]{Anova}()}, or
 #'  \code{\link[stats]{aov}()}.
 #'
@@ -97,7 +101,7 @@ NULL
 
 #'@name anova_summary
 #'@export
-anova_summary <- function(object, effect.size = "ges", detailed = FALSE, observed = NULL){
+anova_summary <- function(object, effect.size = "ges", detailed = FALSE, observed = NULL, ci = NULL){
   if(inherits(object, "Anova.mlm")){
     results <- repeated_anova_summary(object)
   }
@@ -114,7 +118,7 @@ anova_summary <- function(object, effect.size = "ges", detailed = FALSE, observe
   }
   .args <- attr(object, "args") # exist only in anova_test()
   results <- results %>%
-    add_anova_effect_size(effect.size, observed)
+    add_anova_effect_size(effect.size, observed, ci = ci)
 
   if(!detailed){
     results <- remove_details(results, method = "anova")
@@ -138,8 +142,8 @@ repeated_anova_summary <- function(res.anova, detailed = FALSE){
     convert_anova_object_as_data_frame() %>%
     set_colnames(c("Effect", "SSn", "DFn", "SSd", "DFd", "F", "p")) %>%
     select(
-      .data$Effect, .data$DFn, .data$DFd,
-      .data$SSn, .data$SSd, .data$F, .data$p
+      all_of(c("Effect", "DFn", "DFd",
+      "SSn", "SSd", "F", "p"))
     ) %>%
     mutate(`p<.05` = ifelse(.data$p < 0.05, "*",''))
   sphericity.test <- corrections <- NULL
@@ -183,18 +187,18 @@ convert_anova_object_as_data_frame <- function(aov.table){
 
 add_corrected_df <- function(.summary){
   aov.table <- .summary$ANOVA %>%
-    select(.data$Effect, .data$DFn, .data$DFd)
+    select(all_of(c("Effect", "DFn", "DFd")))
   corrections <- .summary$`Sphericity Corrections` %>%
     dplyr::left_join(aov.table, by = "Effect") %>%
     mutate(
       df.gg = paste(round_value(.data$GGe*.data$DFn, 2), round_value(.data$GGe*.data$DFd, 2), sep = ", "),
       df.hf = paste(round_value(.data$HFe*.data$DFn, 2), round_value(.data$HFe*.data$DFd, 2), sep = ", ")
     ) %>%
-    select(-.data$DFd, -.data$DFn)
+    select(-any_of(c("DFd", "DFn")))
   df.gg <- corrections$df.gg
   df.hf <- corrections$df.hf
   .summary$`Sphericity Corrections` <- corrections %>%
-    select(-.data$df.gg, -.data$df.hf) %>%
+    select(-any_of(c("df.gg", "df.hf"))) %>%
     add_column(`DF[GG]` = df.gg, .after = "GGe") %>%
     add_column(`DF[HF]` = df.hf, .after = "HFe")
   .summary
@@ -207,11 +211,11 @@ summary_independent_anova <- function(res.anova){
   .residuals <- res.anova["Residuals", 1:2]
   if('Mean Sq' %in% colnames(res.anova)){
     # exists when res.anova is from stats::anova
-    res.anova <- select(res.anova, -.data$`Mean Sq`)
+    res.anova <- select(res.anova, -any_of("Mean Sq"))
   }
   if('Sum Sq' %in% colnames(res.anova)){
     # in stats::anova, Sum Sq is not the first column, so do select
-    res.anova <- res.anova %>% select(.data$`Sum Sq`, dplyr::everything())
+    res.anova <- res.anova %>% select(all_of("Sum Sq"), dplyr::everything())
     colnames(res.anova) <- c('SSn','DFn','F','p')
     ss.exists <- TRUE
   }
@@ -252,7 +256,7 @@ summary_aov <- function(res.anova){
       mutate(`p<.05` = as.character(ifelse(.data$p < 0.05, "*",''))) %>%
       mutate(Effect = remove_empty_space(.data$Effect)) %>%
       filter(!is.na(.data$p)) %>%
-      select(-.data$MS)
+      select(-any_of("MS"))
     aov.summary
   }
   res.anova <- summary(res.anova) %>%
@@ -274,16 +278,19 @@ order_by_interaction_levels <- function(aov.table){
 
 # Add effect size
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-add_anova_effect_size <- function(res.anova.summary, effect.size = "ges",  observed = NULL){
+add_anova_effect_size <- function(res.anova.summary, effect.size = "ges",  observed = NULL, ci = NULL){
   ss.exists <- "SSn" %in% colnames(res.anova.summary$ANOVA)
   if(!ss.exists){
     return(res.anova.summary)
   }
   if("pes" %in% effect.size){
     res.anova.summary <- res.anova.summary %>%
-      add_partial_eta_squared()
+      add_partial_eta_squared(ci = ci)
   }
-  else {
+  # Compute ges whenever it is requested, and also when neither is explicitly
+  # "pes" only (preserving the historical ges default for "ges"/unspecified
+  # values). This lets effect.size = c("pes", "ges") return BOTH columns (#180).
+  if(("ges" %in% effect.size) || !("pes" %in% effect.size)){
     res.anova.summary <- res.anova.summary %>%
       add_generalized_eta_squared(observed)
   }
@@ -313,10 +320,59 @@ add_generalized_eta_squared <- function(res.anova.summary, observed = NULL){
   res.anova.summary
 }
 # Partial eta squared
-add_partial_eta_squared <- function(res.anova.summary){
-  res.anova.summary$ANOVA <- res.anova.summary$ANOVA %>%
+add_partial_eta_squared <- function(res.anova.summary, ci = NULL){
+  aov.table <- res.anova.summary$ANOVA %>%
     mutate(pes = .data$SSn/(.data$SSn + .data$SSd))
+  if(!is.null(ci)){
+    # Confidence interval for partial eta-squared via the noncentral F
+    # distribution (Steiger, 2004), computed in base R from each effect's F and
+    # (uncorrected) degrees of freedom. The point estimate F * DFn / (F * DFn +
+    # DFd) equals SSn / (SSn + SSd), so the CI brackets the reported `pes`.
+    bounds <- mapply(
+      partial_eta_squared_ci,
+      aov.table$F, aov.table$DFn, aov.table$DFd,
+      MoreArgs = list(conf.level = ci)
+    )
+    aov.table$conf.low  <- bounds[1, ]
+    aov.table$conf.high <- bounds[2, ]
+  }
+  res.anova.summary$ANOVA <- aov.table
   res.anova.summary
+}
+
+# Noncentral-F confidence interval for partial eta-squared, for a single effect.
+# Inverts the noncentral F to bound the noncentrality parameter (lambda), then
+# maps lambda to partial eta-squared via lambda / (lambda + DFd). This matches
+# the convention used by the effectsize package (F_to_eta2), so the intervals
+# agree with effectsize::eta_squared(partial = TRUE, ci = , alternative =
+# "two.sided"). Pure base R (stats); returns c(conf.low, conf.high).
+partial_eta_squared_ci <- function(F.value, df1, df2, conf.level = 0.95){
+  if(any(is.na(c(F.value, df1, df2))) || F.value <= 0 || df1 <= 0 || df2 <= 0)
+    return(c(NA_real_, NA_real_))
+  alpha <- 1 - conf.level
+  # smallest lambda for which P(F <= observed | ncp = lambda) == target.prob;
+  # lambda = 0 when even the central F already gives a smaller probability.
+  # suppressWarnings(): at pathological noncentrality (very large F) base R's
+  # noncentral-beta routine can warn about non-convergence; the returned bound
+  # is still valid and this keeps such warnings from leaking out of anova_test().
+  find_lambda <- function(target.prob){
+    suppressWarnings({
+      if(stats::pf(F.value, df1, df2, ncp = 0) < target.prob) return(0)
+      upper <- 2
+      while(stats::pf(F.value, df1, df2, ncp = upper) > target.prob){
+        upper <- upper * 2
+        if(upper > 1e8) return(upper)
+      }
+      stats::uniroot(
+        function(lambda) stats::pf(F.value, df1, df2, ncp = lambda) - target.prob,
+        interval = c(0, upper)
+      )$root
+    })
+  }
+  lambda.low  <- find_lambda(1 - alpha/2)
+  lambda.high <- find_lambda(alpha/2)
+  to_eta <- function(lambda) lambda / (lambda + df2)
+  c(to_eta(lambda.low), to_eta(lambda.high))
 }
 
 

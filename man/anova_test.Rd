@@ -20,7 +20,8 @@ anova_test(
   error = NULL,
   white.adjust = FALSE,
   observed = NULL,
-  detailed = FALSE
+  detailed = FALSE,
+  ci = NULL
 )
 
 get_anova_table(x, correction = c("auto", "GG", "HF", "none"))
@@ -59,11 +60,17 @@ Should be unique per individual.}
 \item{covariate}{(optional) covariate names (for ANCOVA)}
 
 \item{type}{the type of sums of squares for ANOVA. Allowed values are either
-1, 2 or 3. \code{type = 2} is the default because this will yield identical
-ANOVA results as type = 1 when data are balanced but type = 2 will
-additionally yield various assumption tests where appropriate. When the data
-are unbalanced the \code{type = 3} is used by popular commercial softwares
-including SPSS.}
+ 1, 2 or 3. \code{type = 2} is the recommended default because it yields
+ identical ANOVA results to type = 1 when data are balanced, while also
+ producing various assumption tests where appropriate. When the data are
+ unbalanced, \code{type = 3} is the choice used by popular commercial
+ softwares including SPSS.
+
+ \strong{Default when \code{type} is not specified:} the chosen default
+ depends on the interface (see Note), so for unbalanced designs the two
+ interfaces can differ. To get reproducible, interface-independent results,
+ \strong{set \code{type} explicitly} (e.g. \code{type = 3} for an unbalanced
+ factorial design with interactions).}
 
 \item{effect.size}{the effect size to compute and to show in the ANOVA
 results. Allowed values can be either "ges" (generalized eta squared) or
@@ -83,6 +90,15 @@ eta-squared) requires correct specification of the observed variables.}
 
 \item{detailed}{If TRUE, returns extra information (sums of squares columns,
 intercept row, etc.) in the ANOVA table.}
+
+\item{ci}{confidence level for a confidence interval on the effect size. If a
+number between 0 and 1 (e.g. \code{0.95}), two columns \code{conf.low} and
+\code{conf.high} are added giving the confidence interval for \strong{partial
+eta squared} (\code{effect.size} must include \code{"pes"}). The interval is
+computed from the noncentral F distribution (Steiger, 2004) in base R. No
+interval is provided for generalized eta squared (\code{"ges"}), which has no
+standard closed-form interval. Default is \code{NULL} (no interval; output
+unchanged).}
 
 \item{x}{an object of class \code{anova_test}}
 
@@ -136,19 +152,29 @@ Provides a pipe-friendly framework to perform different types of
  checks.
 }
 \details{
-The setting in \code{anova_test()} is done in such a way that it
- gives the same results as SPSS, one of the most used commercial software. By
- default, R uses treatment contrasts, where each of the levels is compared to
- the first level used as baseline. The default contrast can be checked using
- \code{options('contrasts')}. In the function \code{anova_test()}, the
- following setting is used
- \code{options(contrasts=c('contr.sum','contr.poly'))}, which gives
- orthogonal contrasts where you compare every level to the overall mean. This
- setting gives the same output as the most commonly used commercial
- softwares, like SPSS. If you want to obtain the same result with the
- function \code{car::Anova()} as the one obtained with
- \code{rstatix::anova_test()}, then don't forget to set
- \code{options(contrasts=c('contr.sum','contr.poly'))}.
+\strong{Contrasts}. By default, R uses treatment contrasts
+ (\code{contr.treatment}), where each factor level is compared to the first
+ level used as baseline; the current setting can be checked with
+ \code{options('contrasts')}.
+
+ How \code{anova_test()} handles contrasts depends on the interface you use:
+ \itemize{ \item When you use the \strong{formula interface} (or the \code{dv}
+ + \code{between}/\code{within} arguments), \code{anova_test()} fits the model
+ internally with \code{options(contrasts = c('contr.sum', 'contr.poly'))},
+ restoring your global option afterwards. This gives orthogonal contrasts,
+ where every level is compared to the overall mean, and type-III results that
+ match the most commonly used commercial softwares, like SPSS. \item When you
+ instead pass a \strong{pre-fitted model} (\code{lm()} or \code{aov()}),
+ \code{anova_test()} does not change its contrasts: the model keeps whatever
+ contrasts were in effect when it was fitted (R's default
+ \code{contr.treatment} unless you set otherwise). Fitting with the default
+ treatment contrasts and then requesting \code{type = 3} can therefore give
+ different results from the formula interface. }
+
+ To reproduce the formula-interface (SPSS) result from a pre-fitted model, or
+ to obtain the same result with \code{car::Anova()} directly, set
+ \code{options(contrasts = c('contr.sum', 'contr.poly'))} \emph{before}
+ fitting the model and use \code{type = 3}.
 }
 \section{Functions}{
 \itemize{
@@ -159,6 +185,31 @@ The setting in \code{anova_test()} is done in such a way that it
 sphericity corrected or uncorrected degrees of freedom can be reported.
 
 }}
+\note{
+\strong{Default sums-of-squares type differs between the two interfaces
+ for unbalanced designs.} When \code{type} is not supplied:
+ \itemize{
+ \item the \strong{formula} interface (\code{anova_test(data, y ~ a*b)}) uses
+ \strong{type II} for between-subjects designs, regardless of balance;
+ \item the \strong{\code{dv=}/\code{between=}/\code{within=}} interface uses
+ type II for \emph{balanced} between-subjects designs but switches to
+ \strong{type III} for \emph{unbalanced} between-subjects designs with more
+ than one factor (both interfaces use type III for repeated-measures designs).
+ }
+ For a \strong{balanced} design the SS types coincide, so the two interfaces
+ agree. For an \strong{unbalanced} factorial design they can give different
+ main-effect F/p values unless you \strong{pass \code{type} explicitly} — which
+ is recommended for reproducibility. Example:
+ \preformatted{
+ d <- mtcars \%>\% dplyr::mutate(cyl = factor(cyl), am = factor(am))
+ # differ (unbalanced): formula -> type II, dv/between -> type III
+ d \%>\% anova_test(mpg ~ cyl * am)
+ d \%>\% anova_test(dv = mpg, between = c(cyl, am))
+ # agree once type is explicit:
+ d \%>\% anova_test(mpg ~ cyl * am, type = 3)
+ d \%>\% anova_test(dv = mpg, between = c(cyl, am), type = 3)
+ }
+}
 \examples{
 # Load data
 #:::::::::::::::::::::::::::::::::::::::

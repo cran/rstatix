@@ -41,10 +41,18 @@ NULL
 #'@return return a data frame with the following columns: \itemize{ \item
 #'  \code{var1, var2}: the variables used in the correlation test. \item
 #'  \code{cor}: the correlation coefficient. \item \code{statistic}: Test
-#'  statistic used to compute the p-value. \item \code{p}: p-value. \item
+#'  statistic used to compute the p-value. \item \code{df}: the degrees of
+#'  freedom (Pearson method only). \item \code{p}: p-value. \item
 #'  \code{conf.low,conf.high}: Lower and upper bounds on a confidence interval.
 #'  \item \code{method}: the method used to compute the statistic.}
-#'@seealso \code{\link{cor_mat}()}, \code{\link{as_cor_mat}()}
+#'@note \code{cor_test()} does not support weighted correlations: it wraps
+#'  \code{\link[stats]{cor.test}()}, which has no \code{weights} argument.
+#'  Passing \code{weights =} therefore raises an error rather than silently
+#'  returning the unweighted result. For a weighted Pearson correlation use base
+#'  R, e.g. \code{stats::cov.wt(data[, c("x", "y")], wt = data$w, cor =
+#'  TRUE)$cor}.
+#'@seealso \code{\link{cor_mat}()}, \code{\link{as_cor_mat}()},
+#'  \code{\link{rstatix-programming}} (using variable names held in strings)
 #' @examples
 #'
 #' # Correlation between the specified variable vs
@@ -92,6 +100,21 @@ cor_test <- function(
 )
 {
   . <- NULL
+  # #47: stats::cor.test() -- and therefore cor_test() -- has no `weights`
+  # argument, so a weighted correlation is not supported. A `weights =` passed
+  # here used to be silently mis-handled (treated as an extra variable to
+  # correlate, or dropped), returning the *unweighted* result without warning.
+  # Fail loudly instead. Only a NAMED `weights =` triggers this; a bare column
+  # named `weights` selected for correlation is unaffected.
+  if("weights" %in% names(rlang::enquos(..., .ignore_empty = "all"))){
+    stop(
+      "cor_test() does not support weighted correlation: stats::cor.test() ",
+      "has no 'weights' argument, so the weights would be ignored.\n",
+      "For a weighted Pearson correlation use base R, e.g.\n",
+      "  stats::cov.wt(data[, c('x','y')], wt = data$w, cor = TRUE)$cor",
+      call. = FALSE
+    )
+  }
   # Accept unquoted variables
   .args <- rlang::enquos(vars = vars, vars2 = vars2) %>%
     get_quo_vars_list(data, .)
@@ -181,14 +204,15 @@ mcor_test <- function(data, x, y, ...){
 # Tidy output for correlation test
 as_tidy_cor <- function(x){
 
-  estimate <- cor <- statistic <- p <-
+  estimate <- cor <- statistic <- df <- p <-
     conf.low <- conf.high <- method <- NULL
   res <- x %>%
     as_tidy_stat() %>%
     rename(cor = estimate) %>%
     mutate(cor = signif(cor, 2))
   if(res$method == "Pearson"){
-    res %>% select(cor, statistic, p, conf.low, conf.high, method)
+    # Pearson reports the degrees of freedom (n - 2); Spearman/Kendall do not (#107)
+    res %>% select(cor, statistic, df, p, conf.low, conf.high, method)
   }
   else {
     res %>% select(cor, statistic, p, method)

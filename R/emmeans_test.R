@@ -9,9 +9,16 @@ NULL
 #'  before using this function. This function is useful for performing post-hoc
 #'  analyses following ANOVA/ANCOVA tests.
 #'@inheritParams t_test
-#'@param model a fitted-model objects such as the result of a call to
-#'  \code{lm()}, from which the overall degrees of
-#'  freedom are to be calculated.
+#'@param model a fitted-model object such as the result of a call to
+#'  \code{lm()}, \code{stats::aov()} (including a within-subject \code{Error()}
+#'  term) or \code{nlme::lme()}, on which the estimated marginal means are
+#'  computed. Supplying \code{model} lets you (i) average over factors that are
+#'  in the model but not in \code{formula} (e.g. for a factorial design, fit
+#'  \code{lm(y ~ a * b)} and compare \code{a} with \code{formula = y ~ a},
+#'  averaging over \code{b}), and (ii) run pairwise comparisons for
+#'  repeated-measures / mixed designs (pass a within-subject model). When
+#'  \code{model = NULL} (default), a simple \code{lm()} is fitted from
+#'  \code{formula} (plus the grouping and covariate variables). See examples.
 #'@param covariate (optional) covariate names (for ANCOVA)
 #'@return return a data frame with some the following columns: \itemize{ \item
 #'  \code{.y.}: the y variable used in the test. \item \code{group1,group2}: the
@@ -46,6 +53,26 @@ NULL
 #' df %>%
 #'  group_by(supp) %>%
 #'  emmeans_test(len ~ dose, p.adjust.method = "bonferroni", detailed = TRUE)
+#'
+#' # Marginal means averaged over another factor (e.g. a 2x3 design).
+#' # Fit the full model and pass it with `model =` so that the estimated
+#' # marginal means for `dose` are averaged over `supp` (instead of fitting
+#' # `len ~ dose` alone, which would ignore `supp`):
+#' model <- lm(len ~ supp * dose, data = df)
+#' df %>% emmeans_test(len ~ dose, model = model)
+#'
+#' # Repeated-measures / mixed designs: pass a fitted within-subject model
+#' # (e.g. stats::aov() with an Error() term, or nlme::lme()) with `model =`:
+#' \donttest{
+#' set.seed(123)
+#' d <- data.frame(
+#'   id    = factor(rep(1:10, 3)),
+#'   time  = factor(rep(c("t1", "t2", "t3"), each = 10)),
+#'   score = rnorm(30)
+#' )
+#' rm_model <- stats::aov(score ~ time + Error(id / time), data = d)
+#' d %>% emmeans_test(score ~ time, model = rm_model)
+#' }
 #'@export
 emmeans_test <- function(data, formula, covariate = NULL, ref.group = NULL,
                          comparisons = NULL, p.adjust.method = "bonferroni",
@@ -67,6 +94,13 @@ emmeans_test <- function(data, formula, covariate = NULL, ref.group = NULL,
       paste(collapse = "*")
     data <- dplyr::ungroup(data)
   }
+  # Reference grid for emmeans is built over the comparison variable(s) only
+  # (group + grouping vars). The covariate goes into the model but NOT the grid:
+  # emmeans averages over it (ANCOVA). Keeping the covariate in the grid breaks
+  # for a 2-value numeric covariate, which emmeans keeps as a factor by default
+  # (cov.keep = "2"), producing "Nonconforming number of contrast coefficients"
+  # (#206, #86).
+  emmeans.rhs <- rhs
   if(!is.null(covariate)){
     covariate <- paste(covariate, collapse = "+")
     rhs <- paste(covariate, rhs, sep = "+")
@@ -87,7 +121,7 @@ emmeans_test <- function(data, formula, covariate = NULL, ref.group = NULL,
     comparisons <- get_comparisons(data, variable = !!group, ref.group = !!ref.group)
   }
   method <- get_emmeans_contrasts(data, group, comparisons)
-  formula.emmeans <- stats::as.formula(paste0("~", rhs))
+  formula.emmeans <- stats::as.formula(paste0("~", emmeans.rhs))
   res.emmeans <- emmeans::emmeans(model, formula.emmeans)
   comparisons <- pairwise_emmeans_test(
     res.emmeans, grouping.vars, method = method,

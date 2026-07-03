@@ -19,6 +19,8 @@
 #' @importFrom dplyr filter
 #' @importFrom dplyr tibble
 #' @importFrom dplyr everything
+#' @importFrom dplyr all_of
+#' @importFrom dplyr any_of
 #' @importFrom dplyr left_join
 #' @importFrom purrr map map2
 #' @importFrom broom tidy
@@ -41,7 +43,7 @@
 # Unnesting, adapt to tidyr 1.0.0
 unnest <- function(data, cols = "data", ...){
   if(is_pkg_version_sup("tidyr", "0.8.3")){
-   results <- tidyr::unnest(data, cols = cols, ...)
+   results <- tidyr::unnest(data, cols = all_of(cols), ...)
   }
   else {results <- tidyr::unnest(data, ...)}
   results
@@ -77,16 +79,30 @@ round_column <- function(data, ...,  digits = 0){
   if(.is_empty(dot.vars)){
     data %<>% dplyr::mutate_if(is.numeric, round_value, digits = digits)
   }
-  data %<>% dplyr::mutate_at(dot.vars, round_value, digits = digits)
+  data %<>% dplyr::mutate_at(dplyr::vars(all_of(dot.vars)), round_value, digits = digits)
   data
 }
 
 # Extract or replace number from character string
 extract_number <- function(x){
-  as.numeric(gsub("[^0-9.-]+", "", as.character(x)))
+  x <- as.character(x)
+  # Scientific notation (e.g. "1e-04") loses its exponent under the generic
+  # regex below (the "e" is dropped -> "1-04" -> NA); parse those explicitly,
+  # keeping non-scientific strings on the original byte-identical path (#148)
+  is.sci <- grepl("[0-9](e|E)[-+]?[0-9]", x)
+  res <- numeric(length(x))
+  res[!is.sci] <- as.numeric(gsub("[^0-9.-]+", "", x[!is.sci]))
+  res[is.sci]  <- as.numeric(gsub("[^0-9.eE+-]+", "", x[is.sci]))
+  res
 }
 replace_number <- function(x, replacement = ""){
-  gsub("[0-9.]", replacement, as.character(x))
+  x <- as.character(x)
+  # For scientific notation, strip the whole number (incl. exponent) so the
+  # remaining "leading character" is the genuine prefix and not "e-" (#148)
+  is.sci <- grepl("[0-9](e|E)[-+]?[0-9]", x)
+  out <- gsub("[0-9.]", replacement, x)
+  out[is.sci] <- gsub("[-+]?[0-9.]+([eE][-+]?[0-9]+)?", replacement, x[is.sci])
+  out
 }
 
 # Add columns into data frame
@@ -186,9 +202,23 @@ get_quo_vars <- function (data, vars)
   if(rlang::quo_is_missing(vars)){
     return(NULL)
   }
-  names(data) %>%
-    tidyselect::vars_select(!!vars) %>%
-    magrittr::set_names(NULL)
+  # A bare symbol that names a column is selected directly (original path), so a
+  # same-named object in the caller's environment can never shadow the column.
+  # Otherwise, if the expression resolves to a character vector (an external
+  # vector passed via vars =/vars2 =), select it with all_of() to avoid the
+  # tidyselect external-vector deprecation. Everything else (tidyselect helpers,
+  # numeric positions, ...) keeps the original byte-identical path (#202).
+  expr <- rlang::quo_get_expr(vars)
+  is.bare.column <- is.symbol(expr) && (rlang::as_string(expr) %in% names(data))
+  if(!is.bare.column){
+    resolved <- tryCatch(rlang::eval_tidy(vars), error = function(e) NULL)
+    if(is.character(resolved)){
+      selected <- tidyselect::vars_select(names(data), tidyselect::all_of(resolved))
+      return(magrittr::set_names(selected, NULL))
+    }
+  }
+  selected <- names(data) %>% tidyselect::vars_select(!!vars)
+  magrittr::set_names(selected, NULL)
 }
 # .args <- rlang::enquos(x = x, y = y, ...) %>%
 #   get_quo_vars_list(data, .)
@@ -218,6 +248,23 @@ get_formula_left_hand_side <- function(formula){
 }
 get_formula_right_hand_side <- function(formula){
   attr(stats::terms(formula), "term.labels")
+}
+# Drop the '| subject' block from a repeated-measures formula such as
+# 'outcome ~ within | subject', returning 'outcome ~ within'. Formulas without a
+# '|' on the right-hand side are returned unchanged (so callers operating on
+# simple 'y ~ group' formulas are unaffected). The right-hand side is rewritten
+# by manipulating the language objects directly (rather than round-tripping
+# through deparse/as.formula), so non-syntactic names (e.g. backticked names
+# with spaces) and the formula environment are preserved.
+drop_formula_block_term <- function(formula){
+  if(!inherits(formula, "formula")) return(formula)
+  rhs.index <- length(formula)            # 3 for 'lhs ~ rhs', 2 for '~ rhs'
+  rhs <- formula[[rhs.index]]
+  if(is.call(rhs) && identical(rhs[[1]], as.name("|"))){
+    # 'within | subject' parses as `|`(within, subject); keep the within term
+    formula[[rhs.index]] <- rhs[[2]]
+  }
+  formula
 }
 .extract_formula_variables <- function(formula){
   outcome <- get_formula_left_hand_side(formula)
@@ -272,9 +319,37 @@ get_levels <- function(data, group){
   group.values <- data %>% pull(group.col)
   if(!is.factor(group.values))
     group.values <- as.factor(group.values)
+  # drop unused factor levels so empty groups don't produce impossible
+  # comparisons ("not enough observations"); matches stats::t.test (#133)
+  group.values <- droplevels(group.values)
   if(!is.null(ref.group)){
-    if(ref.group != "")
+    if(ref.group != ""){
+      # Clear, actionable error when the reference group is absent (#153). This
+      # previously surfaced as a cryptic stats::relevel() error ("'<ref>' must
+      # be an existing level"). It is most common with grouped data, where some
+      # group(s) may not contain the reference level. Only fires when ref.group
+      # is genuinely missing (which already errored), so valid inputs are
+      # unaffected. The condition carries the S3 class
+      # "rstatix_missing_ref_group" so callers (e.g. ggpubr's geom_pwc, which
+      # skips ref-less grouped subsets) can detect it reliably by class instead
+      # of by matching the (translatable) message text.
+      if(!ref.group %in% levels(group.values)){
+        rlang::abort(
+          paste0(
+            "The reference group (ref.group = '", ref.group, "') is not present ",
+            "in the data. Available group levels: ",
+            paste(levels(group.values), collapse = ", "), ".\n",
+            "If you are using group_by(), some groups may not contain the ",
+            "reference group; keep only those that do before testing, e.g.\n",
+            "  data %>% group_by(...) %>% dplyr::filter(any(", group.col,
+            " == '", ref.group, "'))"
+          ),
+          class = "rstatix_missing_ref_group",
+          call = NULL
+        )
+      }
       group.values <- stats::relevel(group.values, ref.group)
+    }
   }
   data %>% mutate(!!group.col := group.values)
 }
@@ -317,7 +392,7 @@ as_regexp <- function(x){
 # Create a tidy statistical output
 #:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 # Generic function to create a tidy statistical output
-as_tidy_stat <- function(x, round.p = TRUE, digits = 3, stat.method = NULL){
+as_tidy_stat <- function(x, round.p = FALSE, digits = 3, stat.method = NULL){
   estimate <- estimate1 <- estimate2 <- p.value <-
     alternative <- p <- NULL
   res <- tidy(x)
@@ -333,7 +408,7 @@ as_tidy_stat <- function(x, round.p = TRUE, digits = 3, stat.method = NULL){
     if(round.p) res <- res %>% mutate(p = signif(p, digits))
   }
   if("parameter" %in% colnames(res)){
-    res <- res %>% rename(df = .data$parameter)
+    res <- res %>% rename(df = "parameter")
   }
   res
 }
@@ -342,8 +417,25 @@ get_stat_method <- function(x){
   if(inherits(x, c("aov", "anova"))){
     return("Anova")
   }
+  # Report the specific t-test / Wilcoxon variant rather than a generic label (#124)
+  test.method <- x$method
+  if(!is.null(test.method)){
+    if(grepl("t-test", test.method, ignore.case = TRUE)){
+      if(grepl("welch", test.method, ignore.case = TRUE)) return("Welch t-test")
+      if(grepl("paired", test.method, ignore.case = TRUE)) return("Paired t-test")
+      if(grepl("one sample", test.method, ignore.case = TRUE)) return("One-sample t-test")
+      return("T-test")  # Student's two-sample t-test (var.equal = TRUE)
+    }
+    if(grepl("wilcoxon", test.method, ignore.case = TRUE)){
+      if(grepl("signed rank", test.method, ignore.case = TRUE)) return("Wilcoxon signed rank test")
+      # coin's wilcoxsign_test reports "Paired/One-sample Wilcoxon test (coin)" -
+      # both are signed-rank tests (used by wilcox_effsize) (#122)
+      if(grepl("paired|one[-. ]sample", test.method, ignore.case = TRUE)) return("Wilcoxon signed rank test")
+      return("Wilcoxon rank sum test")  # a.k.a. Mann-Whitney (unpaired)
+    }
+  }
   available.methods <- c(
-    "T-test", "Wilcoxon", "Kruskal-Wallis",
+    "T-test", "Wilcoxon", "Kruskal-Wallis", "Fligner-Killeen",
     "Pearson", "Spearman", "Kendall", "Sign-Test",
     "Cohen's d", "Chi-squared test"
   )
@@ -688,7 +780,12 @@ get_pairwise_comparison_methods <- function(){
     t_test = "T test",
     wilcox_test = "Wilcoxon test",
     sign_test = "Sign test",
+    ks_test = "Kolmogorov-Smirnov test",
     dunn_test = "Dunn test",
+    conover_test = "Conover test",
+    friedman_conover_test = "Durbin-Conover test",
+    friedman_nemenyi_test = "Nemenyi test",
+    dunnett_test = "Dunnett test",
     emmeans_test = "Emmeans test",
     tukey_hsd = "Tukey HSD",
     games_howell_test = "Games Howell",
@@ -726,9 +823,9 @@ get_complete_cases <- function(data){
 tidy_squared_matrix <- function(data, value = "value"){
   data %>%
     as_tibble(rownames = "group2") %>%
-    gather(key = "group1", value = !!value, -.data$group2) %>%
+    gather(key = "group1", value = !!value, -any_of("group2")) %>%
     stats::na.omit() %>% as_tibble() %>%
-    select(.data$group1, everything())
+    select(all_of("group1"), everything())
 }
 
 

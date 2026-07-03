@@ -48,14 +48,28 @@ NULL
 #'@param within (optional) within-subjects factor variables
 #'@param covariate (optional) covariate names (for ANCOVA)
 #'@param type the type of sums of squares for ANOVA. Allowed values are either
-#'  1, 2 or 3. \code{type = 2} is the default because this will yield identical
-#'  ANOVA results as type = 1 when data are balanced but type = 2 will
-#'  additionally yield various assumption tests where appropriate. When the data
-#'  are unbalanced the \code{type = 3} is used by popular commercial softwares
-#'  including SPSS.
+#'  1, 2 or 3. \code{type = 2} is the recommended default because it yields
+#'  identical ANOVA results to type = 1 when data are balanced, while also
+#'  producing various assumption tests where appropriate. When the data are
+#'  unbalanced, \code{type = 3} is the choice used by popular commercial
+#'  softwares including SPSS.
+#'
+#'  \strong{Default when \code{type} is not specified:} the chosen default
+#'  depends on the interface (see Note), so for unbalanced designs the two
+#'  interfaces can differ. To get reproducible, interface-independent results,
+#'  \strong{set \code{type} explicitly} (e.g. \code{type = 3} for an unbalanced
+#'  factorial design with interactions).
 #'@param effect.size the effect size to compute and to show in the ANOVA
 #'  results. Allowed values can be either "ges" (generalized eta squared) or
 #'  "pes" (partial eta squared) or both. Default is "ges".
+#'@param ci confidence level for a confidence interval on the effect size. If a
+#'  number between 0 and 1 (e.g. \code{0.95}), two columns \code{conf.low} and
+#'  \code{conf.high} are added giving the confidence interval for \strong{partial
+#'  eta squared} (\code{effect.size} must include \code{"pes"}). The interval is
+#'  computed from the noncentral F distribution (Steiger, 2004) in base R. No
+#'  interval is provided for generalized eta squared (\code{"ges"}), which has no
+#'  standard closed-form interval. Default is \code{NULL} (no interval; output
+#'  unchanged).
 #'@param white.adjust Default is FALSE. If TRUE, heteroscedasticity correction
 #'  is applied to the coefficient of covariance matrix. Used only for
 #'  independent measures ANOVA.
@@ -92,19 +106,52 @@ NULL
 #'  list holding the arguments used to fit the ANOVA model, including: data, dv,
 #'  within, between, type, model, etc.
 #'
-#'@details The setting in \code{anova_test()} is done in such a way that it
-#'  gives the same results as SPSS, one of the most used commercial software. By
-#'  default, R uses treatment contrasts, where each of the levels is compared to
-#'  the first level used as baseline. The default contrast can be checked using
-#'  \code{options('contrasts')}. In the function \code{anova_test()}, the
-#'  following setting is used
-#'  \code{options(contrasts=c('contr.sum','contr.poly'))}, which gives
-#'  orthogonal contrasts where you compare every level to the overall mean. This
-#'  setting gives the same output as the most commonly used commercial
-#'  softwares, like SPSS. If you want to obtain the same result with the
-#'  function \code{car::Anova()} as the one obtained with
-#'  \code{rstatix::anova_test()}, then don't forget to set
-#'  \code{options(contrasts=c('contr.sum','contr.poly'))}.
+#'@details \strong{Contrasts}. By default, R uses treatment contrasts
+#'  (\code{contr.treatment}), where each factor level is compared to the first
+#'  level used as baseline; the current setting can be checked with
+#'  \code{options('contrasts')}.
+#'
+#'  How \code{anova_test()} handles contrasts depends on the interface you use:
+#'  \itemize{ \item When you use the \strong{formula interface} (or the \code{dv}
+#'  + \code{between}/\code{within} arguments), \code{anova_test()} fits the model
+#'  internally with \code{options(contrasts = c('contr.sum', 'contr.poly'))},
+#'  restoring your global option afterwards. This gives orthogonal contrasts,
+#'  where every level is compared to the overall mean, and type-III results that
+#'  match the most commonly used commercial softwares, like SPSS. \item When you
+#'  instead pass a \strong{pre-fitted model} (\code{lm()} or \code{aov()}),
+#'  \code{anova_test()} does not change its contrasts: the model keeps whatever
+#'  contrasts were in effect when it was fitted (R's default
+#'  \code{contr.treatment} unless you set otherwise). Fitting with the default
+#'  treatment contrasts and then requesting \code{type = 3} can therefore give
+#'  different results from the formula interface. }
+#'
+#'  To reproduce the formula-interface (SPSS) result from a pre-fitted model, or
+#'  to obtain the same result with \code{car::Anova()} directly, set
+#'  \code{options(contrasts = c('contr.sum', 'contr.poly'))} \emph{before}
+#'  fitting the model and use \code{type = 3}.
+#'@note \strong{Default sums-of-squares type differs between the two interfaces
+#'  for unbalanced designs.} When \code{type} is not supplied:
+#'  \itemize{
+#'  \item the \strong{formula} interface (\code{anova_test(data, y ~ a*b)}) uses
+#'  \strong{type II} for between-subjects designs, regardless of balance;
+#'  \item the \strong{\code{dv=}/\code{between=}/\code{within=}} interface uses
+#'  type II for \emph{balanced} between-subjects designs but switches to
+#'  \strong{type III} for \emph{unbalanced} between-subjects designs with more
+#'  than one factor (both interfaces use type III for repeated-measures designs).
+#'  }
+#'  For a \strong{balanced} design the SS types coincide, so the two interfaces
+#'  agree. For an \strong{unbalanced} factorial design they can give different
+#'  main-effect F/p values unless you \strong{pass \code{type} explicitly} — which
+#'  is recommended for reproducibility. Example:
+#'  \preformatted{
+#'  d <- mtcars \%>\% dplyr::mutate(cyl = factor(cyl), am = factor(am))
+#'  # differ (unbalanced): formula -> type II, dv/between -> type III
+#'  d \%>\% anova_test(mpg ~ cyl * am)
+#'  d \%>\% anova_test(dv = mpg, between = c(cyl, am))
+#'  # agree once type is explicit:
+#'  d \%>\% anova_test(mpg ~ cyl * am, type = 3)
+#'  d \%>\% anova_test(dv = mpg, between = c(cyl, am), type = 3)
+#'  }
 #'@author Alboukadel Kassambara, \email{alboukadel.kassambara@@gmail.com}
 #' @examples
 #' # Load data
@@ -154,7 +201,18 @@ NULL
 #'@export
 anova_test <- function(data, formula, dv, wid, between, within, covariate, type = NULL,
                        effect.size = "ges", error = NULL,
-                       white.adjust = FALSE, observed = NULL, detailed = FALSE){
+                       white.adjust = FALSE, observed = NULL, detailed = FALSE,
+                       ci = NULL){
+  # Confidence intervals are available for partial eta-squared only (#18). Other
+  # effect sizes are returned without a CI; ges (generalized eta-squared) has no
+  # standard closed-form interval.
+  if(!is.null(ci)){
+    if(!(is.numeric(ci) && length(ci) == 1 && ci > 0 && ci < 1))
+      stop("`ci` must be a single number between 0 and 1 (e.g. 0.95), or NULL.", call. = FALSE)
+    if(!("pes" %in% effect.size))
+      stop("`ci` provides a confidence interval for partial eta-squared only; ",
+           "set effect.size = \"pes\" (or include \"pes\").", call. = FALSE)
+  }
   .args <- rlang::enquos(
     dv = dv, wid = wid, between = between,
     within = within, covariate = covariate) %>%
@@ -163,7 +221,7 @@ anova_test <- function(data, formula, dv, wid, between, within, covariate, type 
   if(!missing(formula)) .args$formula <- formula
 
   .anova_test <- function(data, .args, effect.size = "ges", error = NULL,
-                          observed = NULL, detailed = FALSE){
+                          observed = NULL, detailed = FALSE, ci = NULL){
     .args <- .args %>%
       add_item(data = data) %>%
       check_anova_arguments()
@@ -176,19 +234,23 @@ anova_test <- function(data, formula, dv, wid, between, within, covariate, type 
     results <- res.anova %>%
       anova_summary(
         effect.size = effect.size, detailed = detailed,
-        observed = observed
+        observed = observed, ci = ci
       )
     results
   }
   .append_anova_class <- function(x){
-    class(x) <- c("anova_test", class(x), "rstatix_test")
+    # Class order contract: "rstatix_test" first (consistent with every other
+    # rstatix test, and required before "data.frame" for dplyr/vctrs, #106),
+    # then the specific test class in position 2 so downstream code keying on
+    # class()[2] keeps resolving to "anova" (revdep compatibility, #283).
+    class(x) <- c("rstatix_test", "anova_test", class(x))
     x
   }
 
   if(is_grouped_df(data)){
     results <- data %>% doo(
       ~.anova_test(data = ., .args = .args, effect.size = effect.size,
-                   error = error, observed = observed, detailed = detailed),
+                   error = error, observed = observed, detailed = detailed, ci = ci),
       result = "anova"
     )
     if("anova" %in% colnames(results)){
@@ -197,12 +259,13 @@ anova_test <- function(data, formula, dv, wid, between, within, covariate, type 
         mutate(anova = map(.data$anova, .append_anova_class))
     }
     results <- results %>% set_attrs(args = list(data = data))
-    class(results) <- c("grouped_anova_test", class(results), "rstatix_test")
+    # rstatix_test must come before data.frame for dplyr/vctrs compatibility (#106)
+    class(results) <- c("rstatix_test", "grouped_anova_test", class(results))
   }
   else{
     results <- .anova_test(
       data, .args = .args, effect.size = effect.size,
-      error = error, observed = observed, detailed = detailed
+      error = error, observed = observed, detailed = detailed, ci = ci
       ) %>%
       .append_anova_class()
   }
@@ -240,7 +303,7 @@ get_anova_table_from_simple_test <- function(x, correction = "auto"){
   if(correction.method == "none"){
     res.aov <- x$ANOVA
     attr(res.aov, "args") <- attr(x, "args")
-    class(res.aov) <- c("anova_test", class(res.aov), "rstatix_test")
+    class(res.aov) <- c("rstatix_test", "anova_test", class(res.aov))
     return(res.aov)
   }
   # repeated/mixed design
@@ -273,7 +336,7 @@ get_anova_table_from_simple_test <- function(x, correction = "auto"){
     rownames(res.aov) <- 1:nrow(res.aov)
   }
   res.aov <- res.aov %>% set_attrs(args = .args)
-  class(res.aov) <- c("anova_test", class(res.aov), "rstatix_test")
+  class(res.aov) <- c("rstatix_test", "anova_test", class(res.aov))
   res.aov
 }
 

@@ -145,12 +145,18 @@ get_test_label <- function(stat.test, description = NULL, p.col = "p",
     exact_multinom_test = "Exact multinomial test",
     exact_binom_test = "Exact binomial test",
     cochran_qtest = "Cochran Q test",
-    chisq_trend_test = "Chi-square trend test"
+    chisq_trend_test = "Chi-square trend test",
+    fligner_test = "Fligner-Killeen"
   )
   stop_ifnot_class(stat.test, .class = names(allowed.tests))
   is_anova_test <- inherits(stat.test, "anova_test")
+  anova.n <- NA
   if(is_anova_test){
     stat.test <- get_anova_table(stat.test, correction = correction)
+    # derive the sample size now, before the slice below strips the anova_test
+    # class/attributes that get_n() needs to compute n for ANOVA (#150). The total
+    # sample size is the same for every effect row, so a single value is taken.
+    anova.n <- get_n(stat.test)[1]
     if(is.null(row)) row <-  nrow(stat.test) # consider the last row
   }
   if(!is.null(row)) {
@@ -163,6 +169,7 @@ get_test_label <- function(stat.test, description = NULL, p.col = "p",
   statistic <- get_statistic(stat.test)
   df <- get_df(stat.test)
   n <- get_n(stat.test)
+  if(is_anova_test) n <- anova.n   # use the n derived before the class was stripped (#150)
   effect <- get_effect_size(stat.test, type)
   effect.size <- effect$value
   effect.size.text <- effect$text
@@ -181,8 +188,7 @@ get_test_label <- function(stat.test, description = NULL, p.col = "p",
   }
   stat.test <- stat.test %>%
     keep_only_tbl_df_classes() %>%
-    select(!!sym(p.col)) %>%
-    rename(p = p.col) %>%
+    select(p = all_of(p.col)) %>%
     mutate(
       row.id = 1:nrow(stat.test), n = n,
       statistic = statistic, parameter = df,
@@ -209,7 +215,7 @@ get_test_label <- function(stat.test, description = NULL, p.col = "p",
     results <- stat.test %>%
       group_by(.data$row.id) %>%
       doo(get_label_func_df) %>%
-      pull(.data$.results.)
+      pull(".results.")
   }
   else{
     results <- get_label_func_df(stat.test)
@@ -353,6 +359,9 @@ get_statistic_text <- function(stat.test, type = c("expression", "text")){
       wilcox_test_paired = quote(italic("V")),
       sign_test = quote(italic("S")),
       dunn_test = quote(italic("Z")),
+      conover_test = quote(italic("t")),
+      friedman_conover_test = quote(italic("t")),
+      friedman_nemenyi_test = quote(italic("q")),
       emmeans_test = quote(italic("t")),
       tukey_hsd = quote(italic("t")),
       games_howell_test = quote(italic("t")),
@@ -365,6 +374,7 @@ get_statistic_text <- function(stat.test, type = c("expression", "text")){
       prop_test = quote(italic(chi)^2),
       cochran_qtest = quote(italic(chi)^2),
       chisq_trend_test = quote(italic(chi)^2),
+      fligner_test = quote(italic(chi)^2),
       quote(italic("Stat"))
     )
   }
@@ -376,6 +386,9 @@ get_statistic_text <- function(stat.test, type = c("expression", "text")){
       wilcox_test_paired = "V",
       sign_test = "S",
       dunn_test = "Z",
+      conover_test = "t",
+      friedman_conover_test = "t",
+      friedman_nemenyi_test = "q",
       emmeans_test = "t",
       tukey_hsd = "t",
       games_howell_test = "t",
@@ -388,6 +401,7 @@ get_statistic_text <- function(stat.test, type = c("expression", "text")){
       prop_test = "X2",
       cochran_qtest = "X2",
       chisq_trend_test = "X2",
+      fligner_test = "X2",
       "Stat"
     )
   }
@@ -436,7 +450,7 @@ get_n <- function(stat.test){
     .args <- attr(stat.test, "args")
     wid <- .args$wid
     if(is.null(wid)) n <- nrow(.args$data)
-    else n <- .args$data %>% pull(!!wid) %>% unique() %>% length()
+    else n <- .args$data %>% pull(tidyselect::all_of(wid)) %>% unique() %>% length()
     stat.test$n <- n
   }
   else if(inherits(stat.test, "grouped_anova_test")){
@@ -444,7 +458,7 @@ get_n <- function(stat.test){
     .args <- attr(stat.test, "args")
     stat.test$n <- .args$data %>%
       dplyr::summarise(n = dplyr::n()) %>%
-      pull(.data$n)
+      pull("n")
   }
   n.cols <- c("n", "n1", "n2")
   if(!any(n.cols %in% colnames(stat.test))){
@@ -468,7 +482,12 @@ get_description <- function(stat.test){
     t_test = "T test",
     wilcox_test = "Wilcoxon test",
     sign_test = "Sign test",
+    ks_test = "Kolmogorov-Smirnov test",
     dunn_test = "Dunn test",
+    conover_test = "Conover test",
+    friedman_conover_test = "Durbin-Conover test",
+    friedman_nemenyi_test = "Nemenyi test",
+    dunnett_test = "Dunnett test",
     emmeans_test = "Emmeans test",
     tukey_hsd = "Tukey HSD",
     anova_test = "Anova",
@@ -483,7 +502,8 @@ get_description <- function(stat.test){
     exact_binom_test = "Exact binomial test",
     mcnemar_test = "McNemar test",
     cochran_qtest = "Cochran Q test",
-    chisq_trend_test = "Chi-square trend test"
+    chisq_trend_test = "Chi-square trend test",
+    fligner_test = "Fligner-Killeen"
   )
   args <- attr(stat.test, "args")
   if(is.null(args)) return("")

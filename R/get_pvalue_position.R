@@ -48,12 +48,21 @@ NULL
 #'@param stack logical. If TRUE, computes y position for a stacked plot. Useful
 #'  when dealing with stacked bar plots.
 #'@param scales Should scales be fixed (\code{"fixed"}, the default), free
-#'  (\code{"free"}), or free in one dimension (\code{"free_y"})?. This option is
-#'  considered only when determining the y position. If the specified value is
-#'  \code{"free"} or \code{"free_y"}, then the step increase of y positions will
-#'  be calculated by plot panels. Note that, using \code{"free"} or
-#'  \code{"free_y"} gives the same result. A global step increase is computed
-#'  when \code{scales = "fixed"}.
+#'  (\code{"free"}), or free in one dimension (\code{"free_y"})?. For the y
+#'  position, \code{"free"} or \code{"free_y"} compute the step increase per plot
+#'  panel (otherwise a global step increase is used). For the x position, when
+#'  \code{scales = "free"} the x positions (\code{xmin}/\code{xmax}) are computed
+#'  \strong{per facet}, so that brackets align correctly when a faceted plot
+#'  (\code{facet_*(scales = "free")}) shows a different set of x-axis levels in
+#'  each panel (\code{"free_y"} keeps the global x positions).
+#'@section Added columns: \code{add_y_position()} adds \code{y.position};
+#'  \code{add_x_position()} adds \code{x}, \code{xmin}, \code{xmax}; and
+#'  \code{add_xy_position()} adds all of these. A column named \code{groups} (the
+#'  pair of compared groups, used internally to position dodged grouped
+#'  comparisons) is also added. \strong{\code{groups} is a reserved internal
+#'  column}: do not rely on it and avoid using \code{groups} as one of your own
+#'  column names in the test object, since it is overwritten here. (It may be
+#'  renamed to a dotted, less collision-prone name in a future major version.)
 #' @examples
 #' # Data preparation
 #' #::::::::::::::::::::::::::::::::::::
@@ -136,7 +145,6 @@ get_y_position_core <- function(data, formula, fun = "max", ref.group = NULL, co
   ncomparisons <- length(comparisons)
   group1 <- comparisons %>% get_group(1)
   group2 <- comparisons %>% get_group(2)
-  k <- 1.08
 
   # Estimate y axis scale
   yscale <- get_y_scale(data, y = outcome, group = group, fun = fun, stack = stack)
@@ -144,13 +152,14 @@ get_y_position_core <- function(data, formula, fun = "max", ref.group = NULL, co
   else if(scales %in% c("free", "free_y")){
     step.increase <- step.increase*(yscale$max - yscale$min)
   }
-  # ystart <- k*yscale$max
   ystart <- yscale$max + step.increase
-  yend <- ystart + (step.increase*ncomparisons)
+  # The seq() below spreads ncomparisons brackets over [ystart, yend], so the
+  # gap between consecutive brackets is (yend - ystart)/(ncomparisons - 1).
+  # Using (ncomparisons - 1) here makes that gap exactly step.increase (#201).
+  yend <- ystart + (step.increase*(ncomparisons-1))
 
   if(is.null(ref.group)) ref.group <- ""
   if(ref.group %in% c("all", ".all.")){
-   # y.position <- yscale$y*k
     y.position <- yscale$y + step.increase
   }
   else{
@@ -187,6 +196,32 @@ add_y_position <- function(test, fun = "max", step.increase = 0.12,
   if(is.null(data) | is.null(formula)){
     stop("data and formula arguments should be specified.")
   }
+  # Repeated-measures pairwise tests (e.g. friedman_conover_test) carry a
+  # 'outcome ~ within | subject' formula. For bracket positioning only the
+  # 'outcome ~ within' part is relevant, so drop the '| subject' block to let the
+  # grouping (x) variable be parsed correctly. This is a no-op for the usual
+  # 'outcome ~ group' formulas (which contain no '|'), so existing behavior is
+  # unchanged.
+  formula <- drop_formula_block_term(formula)
+  # When no explicit comparisons were used, derive them from the test's own
+  # group1/group2 rows so that y positions are computed for exactly the
+  # comparisons present (e.g. after filtering the test) instead of for the full
+  # comparison set, which would otherwise produce uneven bracket spacing (#197).
+  # Restricted to the standard ungrouped pairwise case; grouped tests,
+  # ref.group = "all" and one-sample tests keep their existing behavior.
+  if(is.null(comparisons) && !is_grouped_df(data) && nrow(test) > 0 &&
+     all(c("group1", "group2") %in% colnames(test))){
+    is.special <- any(test$group1 %in% c("all", ".all.")) ||
+      any(test$group2 %in% c("null model"))
+    if(!is.special){
+      comparisons <- purrr::map2(
+        as.character(test$group1), as.character(test$group2), c
+      )
+      # name like get_comparisons() (V1, V2, ...) so the derived `groups`
+      # list-column is identical to the unfiltered/default path
+      names(comparisons) <- paste0("V", seq_along(comparisons))
+    }
+  }
   positions <- get_y_position(
     data = data, formula = formula, fun = fun,
     ref.group = ref.group, comparisons = comparisons,
@@ -202,10 +237,10 @@ add_y_position <- function(test, fun = "max", step.increase = 0.12,
     # but y positions are grouped by one variable
     # merging positions and test data frame
     if("y.position" %in% colnames(test)){
-      test <- test %>% select(-.data$y.position)
+      test <- test %>% select(-any_of("y.position"))
     }
     if("groups" %in% colnames(test)){
-      test <- test %>% select(-.data$groups)
+      test <- test %>% select(-any_of("groups"))
     }
     common.columns <- intersect(colnames(test), colnames(positions))
     test <- test %>% dplyr::left_join(positions, by = common.columns)
@@ -230,8 +265,8 @@ get_y_scale <- function(data, y, group, fun = "max", stack = FALSE){
   fun.splitted <- unlist(strsplit(fun, "_", fixed = TRUE))
   .center <- fun.splitted[1]
   .error <- ifelse(length(fun.splitted) == 2, fun.splitted[2], 0)
-  .center <- desc.stat %>% pull(!!.center)
-  if(.error != 0) .error <- desc.stat %>% pull(!!.error)
+  .center <- desc.stat %>% pull(tidyselect::all_of(.center))
+  if(.error != 0) .error <- desc.stat %>% pull(tidyselect::all_of(.error))
   if(stack){
     .center <- rep(sum(.center), length(.center))
   }
@@ -258,8 +293,9 @@ combine_this <- function(...){
 
 #' @describeIn get_pvalue_position compute and add p-value x positions.
 #' @export
-add_x_position <- function(test, x = NULL, group = NULL, dodge = 0.8){
-
+add_x_position <- function(test, x = NULL, group = NULL, dodge = 0.8,
+                           scales = c("fixed", "free", "free_y")){
+  scales <- match.arg(scales)
   # Checking
   asserttat_group_columns_exists(test)
   .attributes <- get_test_attributes(test)
@@ -327,7 +363,41 @@ add_x_position <- function(test, x = NULL, group = NULL, dodge = 0.8){
   test$xmin <- unname(x_coords[xmin_id])
   test$xmax <- unname(x_coords[xmax_id])
   if(is.null.model) test$xmax <- test$xmin
+  # Free x scales in facets (#203): for a faceted test (grouped by one or more
+  # variables) plotted with facet_*(scales = "free"), each facet shows only its
+  # own x levels at positions 1..m, but x_coords above are global. Remap
+  # xmin/xmax to each facet's positions so the brackets line up within the panel.
+  # The panel's x levels are taken from the facet's actual DATA (in factor order),
+  # not from the comparison endpoints, so a level that is plotted but not part of
+  # any (retained) comparison still occupies its position. Only the basic
+  # (non-dodged) case is affected; scales = "fixed" (default) / "free_y" leave the
+  # global positions unchanged.
+  facet.vars <- if(is.basic && scales == "free") .get_facet_vars(test) else character(0)
+  facet.data <- attr(test, "args")$data
+  if(length(facet.vars) > 0 && !is.null(facet.data) && !is.null(x) &&
+     all(facet.vars %in% colnames(facet.data)) && x %in% colnames(facet.data)){
+    x.levels <- levels(as.factor(facet.data[[x]]))   # global factor order
+    test.fid <- do.call(paste, c(as.list(test[facet.vars]), sep = "\r"))
+    data.fid <- do.call(paste, c(as.list(facet.data[facet.vars]), sep = "\r"))
+    for(f in unique(test.fid)){
+      present <- x.levels[x.levels %in% as.character(facet.data[[x]][data.fid == f])]
+      rows <- test.fid == f
+      test$xmin[rows] <- match(as.character(test$group1[rows]), present)
+      test$xmax[rows] <- match(as.character(test$group2[rows]), present)
+    }
+  }
   test %>% set_test_attributes(.attributes)
+}
+
+# Leading grouping/facet variables of a (grouped) test result: the columns that
+# appear before the first comparison/outcome column (.y., term or group1).
+.get_facet_vars <- function(test){
+  stop.cols <- c(".y.", "term", "group1")
+  idx <- match(stop.cols, colnames(test))
+  idx <- idx[!is.na(idx)]
+  if(length(idx) == 0) return(character(0))
+  first <- min(idx)
+  if(first > 1) colnames(test)[seq_len(first - 1)] else character(0)
 }
 
 
@@ -388,7 +458,7 @@ add_xy_position <- function(test, x = NULL,  group = NULL, dodge = 0.8, stack = 
       fun = fun, step.increase = step.increase,
       stack = stack, scales = scales, ...
       ) %>%
-    add_x_position(x = x, group = group, dodge = dodge)
+    add_x_position(x = x, group = group, dodge = dodge, scales = scales)
 }
 
 
@@ -434,7 +504,7 @@ add_x_position0 <- function(test, x = NULL, dodge = 0.8){
     group.var <- get_formula_right_hand_side(.attributes$args$formula)
     groups <- .attributes$args$data %>%
       convert_as_factor(vars = group.var) %>%
-      pull(!!group.var) %>%
+      pull(tidyselect::all_of(group.var)) %>%
       levels()
   }
   group1.coords <- group1.ranks <-  match(group1, groups)

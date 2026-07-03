@@ -12,8 +12,14 @@ NULL
 #'  "median_iqr", "median_mad", "quantile", "mean", "median",  "min", "max"}
 #'@param show a character vector specifying the summary statistics you want to
 #'  show. Example: \code{show = c("n", "mean", "sd")}. This is used to filter
-#'  the output after computation.
+#'  the output after computation. It can additionally include \code{"skewness"}
+#'  and/or \code{"kurtosis"} (e.g. \code{show = c("mean", "sd", "skewness",
+#'  "kurtosis")}); these two are computed on demand and are not part of any
+#'  default \code{type}.
 #' @param probs numeric vector of probabilities with values in [0,1]. Used only when type = "quantile".
+#'@param digits integer indicating the number of decimal places to round the
+#'  summary statistics to. Default is 3. Increase it when summarizing very small
+#'  values that would otherwise round to 0.
 #'@return A data frame containing descriptive statistics, such as: \itemize{
 #'  \item \strong{n}: the number of individuals \item \strong{min}: minimum
 #'  \item \strong{max}: maximum \item \strong{median}: median \item
@@ -21,6 +27,17 @@ NULL
 #'  respectively. \item \strong{iqr}: interquartile range \item \strong{mad}:
 #'  median absolute deviation (see ?MAD) \item \strong{sd}: standard deviation
 #'  of the mean \item \strong{se}: standard error of the mean \item \strong{ci}: 95 percent confidence interval of the mean }
+#'
+#'  When requested through \code{show}, the output can also contain: \itemize{
+#'  \item \strong{skewness}: bias-corrected sample skewness \item
+#'  \strong{kurtosis}: bias-corrected sample excess kurtosis (0 for a normal
+#'  distribution). } Both use the type-2 (bias-corrected) estimator, matching
+#'  \code{e1071} with \code{type = 2}:
+#'  skewness \eqn{= g_1\sqrt{n(n-1)}/(n-2)} and kurtosis \eqn{= [(n+1)g_2 + 6]
+#'  (n-1)/[(n-2)(n-3)]}, where \eqn{g_1 = m_3/m_2^{1.5}} and \eqn{g_2 =
+#'  m_4/m_2^2 - 3}. Skewness is \code{NA} for n < 3 and kurtosis for n < 4.
+#'@seealso \code{\link{rstatix-programming}} for selecting columns by names held
+#'  in strings (\code{!!}, \code{\{\{ \}\}}, \code{vars=}, \code{all_of()}).
 #' @examples
 #' # Full summary statistics
 #' data("ToothGrowth")
@@ -45,17 +62,21 @@ NULL
 #' ToothGrowth %>%
 #'     get_summary_stats(len, show = c("mean", "sd", "median", "iqr"))
 #'
+#' # Include skewness and kurtosis (computed on demand via show)
+#' ToothGrowth %>%
+#'     get_summary_stats(len, show = c("mean", "sd", "skewness", "kurtosis"))
+#'
 #'@export
 get_summary_stats <- function(
   data, ..., type = c("full", "common", "robust",  "five_number",
                       "mean_sd", "mean_se", "mean_ci", "median_iqr", "median_mad", "quantile",
                       "mean", "median",  "min", "max" ),
-  show = NULL, probs = seq(0, 1, 0.25)
+  show = NULL, probs = seq(0, 1, 0.25), digits = 3
   ){
   type = match.arg(type)
   if(is_grouped_df(data)){
     results <- data %>%
-      doo(get_summary_stats, ..., type = type, show = show, probs = probs)
+      doo(get_summary_stats, ..., type = type, show = show, probs = probs, digits = digits)
     return(results)
   }
   data <- data %>% select_numeric_columns()
@@ -87,8 +108,21 @@ get_summary_stats <- function(
     max = max_(data),
     full_summary(data)
   ) %>%
-    dplyr::ungroup() %>%
-    dplyr::mutate_if(is.numeric, round, digits = 3)
+    dplyr::ungroup()
+  # Skewness/kurtosis are not part of any default type; compute on demand only
+  # when requested through `show`, then join so rounding/selection cover them.
+  if(!is.null(show) && any(c("skewness", "kurtosis") %in% show)){
+    .value. <- NULL
+    dist <- data %>%
+      dplyr::summarise(
+        skewness = .skewness(.data$.value.),
+        kurtosis = .kurtosis(.data$.value.)
+      ) %>%
+      dplyr::ungroup()
+    results <- dplyr::left_join(results, dist, by = "variable")
+  }
+  results <- results %>%
+    dplyr::mutate_if(is.numeric, round, digits = digits)
 
   if(!is.null(show)){
     show <- unique(c("variable", "n", show))
@@ -165,7 +199,7 @@ quantile_summary <- function(data, probs = seq(0, 1, 0.25)){
   results  <- data %>%
     nest() %>%
     mutate(.results. = map(data, core_func, probs)) %>%
-    select(.data$variable, .data$.results.) %>%
+    select(all_of(c("variable", ".results."))) %>%
     unnest(cols = ".results.")
   results
 }
@@ -237,7 +271,7 @@ mean_se <- function(data){
       sd = stats::sd(.value., na.rm = TRUE)
     ) %>%
     mutate(se = .data$sd / sqrt(.data$n))%>%
-    select(-.data$sd)
+    select(-any_of("sd"))
 }
 
 mean_ci <- function(data){
@@ -254,7 +288,7 @@ mean_ci <- function(data){
       se = .data$sd / sqrt(.data$n),
       ci = abs(stats::qt(alpha/2, .data$n-1)*.data$se)
     )%>%
-    select(-.data$se, -.data$sd)
+    select(-any_of(c("se", "sd")))
 }
 
 median_iqr <- function(data){
@@ -275,4 +309,30 @@ median_mad <- function(data){
       median = stats::median(.value., na.rm=TRUE),
       mad = stats::mad(.value., na.rm=TRUE)
     )
+}
+
+# Bias-corrected sample skewness/kurtosis (type-2 estimator, matching e1071
+# with type = 2). NA when n is too small. (#99)
+.skewness <- function(x){
+  x <- x[!is.na(x)]
+  n <- length(x)
+  if(n < 3) return(NA_real_)
+  m <- mean(x)
+  m2 <- mean((x - m)^2)
+  m3 <- mean((x - m)^3)
+  if(m2 == 0) return(NA_real_)
+  g1 <- m3 / m2^1.5
+  g1 * sqrt(n * (n - 1)) / (n - 2)
+}
+
+.kurtosis <- function(x){
+  x <- x[!is.na(x)]
+  n <- length(x)
+  if(n < 4) return(NA_real_)
+  m <- mean(x)
+  m2 <- mean((x - m)^2)
+  m4 <- mean((x - m)^4)
+  if(m2 == 0) return(NA_real_)
+  g2 <- m4 / m2^2 - 3
+  ((n + 1) * g2 + 6) * (n - 1) / ((n - 2) * (n - 3))
 }

@@ -32,7 +32,13 @@ add_y_position(
   scales = c("fixed", "free", "free_y")
 )
 
-add_x_position(test, x = NULL, group = NULL, dodge = 0.8)
+add_x_position(
+  test,
+  x = NULL,
+  group = NULL,
+  dodge = 0.8,
+  scales = c("fixed", "free", "free_y")
+)
 
 add_xy_position(
   test,
@@ -94,12 +100,13 @@ example: \code{y.trans = function(x){log2(x+1)}}}
 when dealing with stacked bar plots.}
 
 \item{scales}{Should scales be fixed (\code{"fixed"}, the default), free
-(\code{"free"}), or free in one dimension (\code{"free_y"})?. This option is
-considered only when determining the y position. If the specified value is
-\code{"free"} or \code{"free_y"}, then the step increase of y positions will
-be calculated by plot panels. Note that, using \code{"free"} or
-\code{"free_y"} gives the same result. A global step increase is computed
-when \code{scales = "fixed"}.}
+(\code{"free"}), or free in one dimension (\code{"free_y"})?. For the y
+position, \code{"free"} or \code{"free_y"} compute the step increase per plot
+panel (otherwise a global step increase is used). For the x position, when
+\code{scales = "free"} the x positions (\code{xmin}/\code{xmax}) are computed
+\strong{per facet}, so that brackets align correctly when a faceted plot
+(\code{facet_*(scales = "free")}) shows a different set of x-axis levels in
+each panel (\code{"free_y"} keeps the global x positions).}
 
 \item{test}{an object of class \code{rstatix_test} as returned by
 \code{\link{t_test}()}, \code{\link{wilcox_test}()},
@@ -137,6 +144,17 @@ Compute p-value x and y positions for plotting significance
 \item \code{add_xy_position()}: compute and add both x and y positions.
 
 }}
+\section{Added columns}{
+ \code{add_y_position()} adds \code{y.position};
+ \code{add_x_position()} adds \code{x}, \code{xmin}, \code{xmax}; and
+ \code{add_xy_position()} adds all of these. A column named \code{groups} (the
+ pair of compared groups, used internally to position dodged grouped
+ comparisons) is also added. \strong{\code{groups} is a reserved internal
+ column}: do not rely on it and avoid using \code{groups} as one of your own
+ column names in the test object, since it is overwritten here. (It may be
+ renamed to a dotted, less collision-prone name in a future major version.)
+}
+
 \examples{
 # Data preparation
 #::::::::::::::::::::::::::::::::::::

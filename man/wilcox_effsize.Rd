@@ -16,6 +16,7 @@ wilcox_effsize(
   conf.level = 0.95,
   ci.type = "perc",
   nboot = 1000,
+  detailed = FALSE,
   ...
 )
 }
@@ -58,6 +59,12 @@ hypothesis.}
 
 \item{nboot}{The number of replications to use for bootstrap.}
 
+\item{detailed}{logical value. Default is FALSE. If TRUE, the output
+additionally includes the \code{Z} \code{statistic} (extracted from the
+\code{coin} package and used to compute \code{r = Z/sqrt(N)}), the p-value
+(\code{p}) and the test \code{method}/\code{alternative}, so the effect size
+and the underlying Z are reported together in one data frame.}
+
 \item{...}{Additional arguments passed to the functions
 \code{coin::wilcoxsign_test()} (case of one- or paired-samples test) or
 \code{coin::wilcox_test()} (case of independent two-samples test).}
@@ -69,7 +76,8 @@ return a data frame with some of the following columns: \itemize{
  \code{n,n1,n2}: Sample counts. \item \code{effsize}: estimate of the effect
  size (\code{r} value). \item \code{magnitude}: magnitude of effect size.
  \item \code{conf.low,conf.high}: lower and upper bound of the effect size
- confidence interval.}
+ confidence interval. \item \code{statistic}: the \code{Z} statistic and
+ \code{p}: the p-value (only when \code{detailed = TRUE}).}
 }
 \description{
 Compute Wilcoxon effect size (\code{r}) for: \itemize{ \item
@@ -85,8 +93,19 @@ Compute Wilcoxon effect size (\code{r}) for: \itemize{ \item
  paired-samples test) or \code{coin::wilcox_test()} (case of independent
  two-samples test).
 
- Note that \code{N} corresponds to total sample size for independent samples
- test and to total number of pairs for paired samples test.
+ Here, \code{N} is the number of independent observations contributing to the
+ test: the total sample size for the independent two-samples test, and the
+ \strong{number of pairs} (equivalently, the number of difference scores) for
+ the one-sample and paired tests. This is because the paired test reduces to a
+ one-sample signed-rank test on the pairwise differences, so each pair counts
+ once. This convention matches the default of
+ \code{rcompanion::wilcoxonPairedR()} (its \code{cases = TRUE} setting).
+
+ Some references instead define \code{N} as the total number of observations,
+ i.e. twice the number of pairs (Field, 2012; Tomczak & Tomczak, 2014), which
+ yields a smaller \code{r}. If you need that convention for a paired test,
+ divide the reported \code{r} (or the \code{Z}) by \eqn{\sqrt 2}; it is also
+ available via \code{rcompanion::wilcoxonPairedR(..., cases = FALSE)}.
 
  The \code{r} value varies from 0 to close to 1. The interpretation values
  for r commonly in published litterature and on the internet are: \code{0.10

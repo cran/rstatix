@@ -16,7 +16,9 @@ wilcox_test(
   alternative = "two.sided",
   mu = 0,
   conf.level = 0.95,
-  detailed = FALSE
+  detailed = FALSE,
+  id = NULL,
+  error.as.na = FALSE
 )
 
 pairwise_wilcox_test(
@@ -71,6 +73,24 @@ hypothesis.}
 
 \item{detailed}{logical value. Default is FALSE. If TRUE, a detailed result is
 shown.}
+
+\item{id}{(optional) character string specifying the column that contains the
+sample/subject identifier, used only for a \strong{paired} test
+(\code{paired = TRUE}). When supplied, observations of the two compared
+groups are matched by \code{id} (instead of by row order), and only subjects
+present in both groups are used. For more than two groups, the matching is
+done independently for each pairwise comparison, so different comparisons can
+be based on different numbers of pairs (per-comparison pairwise deletion).
+This makes paired tests work when some observations are missing or the groups
+have unequal sizes. The default (\code{id = NULL}) keeps the previous
+behaviour (groups paired in row order).}
+
+\item{error.as.na}{logical. If \code{TRUE}, a comparison that cannot be
+computed (for example a group with fewer than two observations, or data that
+are essentially constant) returns an \code{NA} result row with a warning
+instead of stopping with an error; the other comparisons (or groups, for a
+grouped analysis) are still computed. Default is \code{FALSE} (the comparison
+errors as before).}
 
 \item{...}{other arguments to be passed to the function
 \code{\link[stats]{wilcox.test}}.}
@@ -137,6 +157,18 @@ Provides a pipe-friendly framework to performs one and two sample
 \item \code{pairwise_wilcox_test()}: performs pairwise two sample Wilcoxon test.
 
 }}
+\note{
+When a \code{ref.group} is specified, the reference group is taken as
+ \code{group1} and the other group as \code{group2}, and the comparison is
+ computed as \code{group1} versus \code{group2} (i.e. \code{ref.group} versus
+ the other group), following the \code{\link[stats]{wilcox.test}} convention.
+ With \code{detailed = TRUE}, the \code{estimate} is the Hodges-Lehmann
+ location shift of \code{group1} relative to \code{group2}, so a positive
+ \code{estimate} means the reference group is shifted higher; flip its sign
+ (\code{mutate(estimate = -estimate)}) if you want a positive sign to mean
+ "higher in the non-reference group". (The \code{statistic} is the
+ rank-sum/signed-rank \code{W}, which is not a signed difference.)
+}
 \examples{
 # Load data
 #:::::::::::::::::::::::::::::::::::::::

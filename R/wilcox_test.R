@@ -34,6 +34,22 @@ NULL
 #'
 #'@param detailed logical value. Default is FALSE. If TRUE, a detailed result is
 #'  shown.
+#'@param id (optional) character string specifying the column that contains the
+#'  sample/subject identifier, used only for a \strong{paired} test
+#'  (\code{paired = TRUE}). When supplied, observations of the two compared
+#'  groups are matched by \code{id} (instead of by row order), and only subjects
+#'  present in both groups are used. For more than two groups, the matching is
+#'  done independently for each pairwise comparison, so different comparisons can
+#'  be based on different numbers of pairs (per-comparison pairwise deletion).
+#'  This makes paired tests work when some observations are missing or the groups
+#'  have unequal sizes. The default (\code{id = NULL}) keeps the previous
+#'  behaviour (groups paired in row order).
+#'@param error.as.na logical. If \code{TRUE}, a comparison that cannot be
+#'  computed (for example a group with fewer than two observations, or data that
+#'  are essentially constant) returns an \code{NA} result row with a warning
+#'  instead of stopping with an error; the other comparisons (or groups, for a
+#'  grouped analysis) are still computed. Default is \code{FALSE} (the comparison
+#'  errors as before).
 #'@param ... other arguments to be passed to the function
 #'  \code{\link[stats]{wilcox.test}}.
 #'
@@ -83,6 +99,17 @@ NULL
 #'
 #'  The \strong{returned object has an attribute called args}, which is a list
 #'  holding the test arguments.
+#'
+#'@note When a \code{ref.group} is specified, the reference group is taken as
+#'  \code{group1} and the other group as \code{group2}, and the comparison is
+#'  computed as \code{group1} versus \code{group2} (i.e. \code{ref.group} versus
+#'  the other group), following the \code{\link[stats]{wilcox.test}} convention.
+#'  With \code{detailed = TRUE}, the \code{estimate} is the Hodges-Lehmann
+#'  location shift of \code{group1} relative to \code{group2}, so a positive
+#'  \code{estimate} means the reference group is shifted higher; flip its sign
+#'  (\code{mutate(estimate = -estimate)}) if you want a positive sign to mean
+#'  "higher in the non-reference group". (The \code{statistic} is the
+#'  rank-sum/signed-rank \code{W}, which is not a signed difference.)
 #' @examples
 #' # Load data
 #' #:::::::::::::::::::::::::::::::::::::::
@@ -131,7 +158,7 @@ wilcox_test <- function(
   data, formula, comparisons = NULL, ref.group = NULL,
   p.adjust.method = "holm",
   paired = FALSE, exact = NULL, alternative = "two.sided",
-  mu = 0, conf.level = 0.95, detailed = FALSE
+  mu = 0, conf.level = 0.95, detailed = FALSE, id = NULL, error.as.na = FALSE
 )
 {
   env <- as.list(environment())
@@ -139,11 +166,18 @@ wilcox_test <- function(
     add_item(method = "wilcox_test")
   params <- env %>%
     remove_null_items() %>%
-    add_item(conf.int = TRUE, method = "wilcox.test")
+    # only request the (Hollander-Wolfe) CI/estimate when detailed = TRUE: it is
+    # not shown otherwise, and its uniroot step errors on degenerate/all-tied data (#79, #167)
+    add_item(conf.int = detailed, method = "wilcox.test")
 
   outcome <- get_formula_left_hand_side(formula)
   group <- get_formula_right_hand_side(formula)
   number.of.groups <- guess_number_of_groups(data, group)
+  if(!is.null(id) && !is.null(ref.group) && ref.group %in% c("all", ".all.")){
+    stop("`id` (paired matching) is not supported with ref.group = 'all': ",
+         "pairing subjects against the pooled grand-mean group is not defined.",
+         call. = FALSE)
+  }
   if(number.of.groups > 2 & !is.null(ref.group)){
     if(ref.group %in% c("all", ".all.")){
       params$data <- create_data_with_all_ref_group(data, outcome, group)
@@ -172,7 +206,7 @@ pairwise_wilcox_test <- function(
     data, formula, method = "wilcox.test",
     comparisons = comparisons, ref.group = ref.group,
     p.adjust.method = p.adjust.method, detailed = detailed,
-    conf.int = TRUE, ...
+    conf.int = detailed, ...
   )
   res %>%
     set_attrs(args = args) %>%

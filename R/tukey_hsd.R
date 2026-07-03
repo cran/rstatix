@@ -90,7 +90,7 @@ tukey_hsd.data.frame <- function(x, formula, ...){
     return(results)
   }
 
-  tukey_hsd_core (x, formula) %>%
+  tukey_hsd_core (x, formula, ...) %>%
     set_attrs(args = args) %>%
     add_class(c("rstatix_test", "tukey_hsd"))
 }
@@ -113,7 +113,6 @@ tukey_hsd_of_model <- function(model, ...){
     separate(comparison, into= c("group2", "group1"), sep = "-") %>%
     revert_back_eventual_minus_symbols(magic.text) %>%
     rename(p.adj = adj.p.value) %>%
-    mutate(p.adj = signif(p.adj, 3)) %>%
     select(term, group1, group2, everything()) %>%
     add_significance("p.adj")
 }
@@ -147,7 +146,7 @@ fct_replace_minus <- function(.factor, by = "_XX.MAGIC.XX_"){
 # column name no matter the version of broom
 replace_contrast_colname_by_comparison <- function(data){
   if("contrast" %in% colnames(data)){
-    data <- data %>% rename(comparison = .data$contrast)
+    data <- data %>% rename(comparison = "contrast")
   }
   data
 }

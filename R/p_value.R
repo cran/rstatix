@@ -195,7 +195,7 @@ p_adj_names <- function(){
 p_round_at <- function(data, ..., digits = 3){
   p.cols <- p_select(data, ...)
   if(!is.null(p.cols)){
-    data %<>% dplyr::mutate_at(rlang::quos(p.cols), round_value, digits = digits)
+    data %<>% dplyr::mutate_at(dplyr::vars(all_of(p.cols)), round_value, digits = digits)
   }
   data
 }
@@ -209,7 +209,7 @@ p_format_at <- function(data, ..., new.col = FALSE, digits = 2, accuracy = 0.000
   p.cols <- p_select(data, ...)
   if(!is.null(p.cols)){
     results <- results %>% mutate_func(
-      p.cols, p_format, digits = digits, accuracy = accuracy,
+      dplyr::vars(all_of(p.cols)), p_format, digits = digits, accuracy = accuracy,
       decimal.mark = decimal.mark, leading.zero = leading.zero,
       trailing.zero = trailing.zero, add.p = add.p, space = space
     )
@@ -229,7 +229,7 @@ p_mark_significant_at <- function(data, ..., new.col = FALSE, cutpoints = c(0, 1
   p.cols <- p_select(data, ...)
   if(!is.null(p.cols)){
     results %<>% mutate_func(
-      p.cols, p_mark_significant, cutpoints = cutpoints,
+      dplyr::vars(all_of(p.cols)), p_mark_significant, cutpoints = cutpoints,
       symbols = symbols
     )
     if(new.col){
@@ -250,7 +250,11 @@ remove_leading_zero <- function(x){
     as.character()
 }
 remove_trailing_zero <- function(x){
-  gsub("\\.?0+$", "", x)
+  # Don't strip zeros from scientific notation (e.g. "5.1e-10"): the exponent's
+  # zeros are significant. Only the decimal part is padded/trimmed (#112)
+  is.sci <- grepl("e[-+]?[0-9]", x, ignore.case = TRUE)
+  x[!is.sci] <- gsub("\\.?0+$", "", x[!is.sci])
+  x
 }
 
 # Select p-value columns: p and p.adj -----------------------

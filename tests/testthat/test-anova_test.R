@@ -95,3 +95,104 @@ test_that("Checking that get_anova_table performs auto sphericity correction", {
   expect_equal(gg$DFd, c(9, 15.09, 16.88))
   expect_equal(gg$p, c(2.28e-04, 2.79e-09, 1.12e-01))
 })
+
+test_that("anova_test gives a well-formed error for a single-level factor (#137)", {
+  d <- data.frame(id = factor(1:6), grp = factor(rep("a", 6)), score = c(1, 2, 3, 4, 5, 6))
+  expect_error(
+    anova_test(d, dv = score, wid = id, between = grp),
+    "has only one level"
+  )
+  # regression for the missing space (#137): must read "grp has", not "grphas"
+  msg <- tryCatch(
+    anova_test(d, dv = score, wid = id, between = grp),
+    error = function(e) conditionMessage(e)
+  )
+  expect_match(msg, "Variable grp has only one level")
+})
+
+test_that("anova_test results are dplyr-compatible: rstatix_test before data.frame (#106)", {
+  g <- ToothGrowth %>% group_by(supp) %>% anova_test(len ~ dose)
+  # class order: the subclasses must come before data.frame (vctrs/dplyr requirement)
+  expect_lt(match("rstatix_test", class(g)), match("data.frame", class(g)))
+  # grouped: filter / mutate must work (previously errored "must be a vector")
+  expect_true(is.data.frame(g %>% dplyr::filter(p < 1)))
+  expect_true(is.data.frame(g %>% dplyr::mutate(z = p)))
+  # ungrouped and get_anova_table() output too
+  u <- ToothGrowth %>% anova_test(len ~ dose)
+  expect_true(is.data.frame(u %>% dplyr::filter(p < 1)))
+  expect_true(is.data.frame(get_anova_table(g) %>% dplyr::filter(p < 1)))
+  # repeated-measures get_anova_table() (with sphericity correction) is dplyr-compatible too
+  set.seed(1)
+  rm <- data.frame(id = factor(rep(1:10, 3)), time = factor(rep(c("t1","t2","t3"), each = 10)),
+                   score = c(rnorm(10, 5), rnorm(10, 6), rnorm(10, 8)))
+  rm.aov <- anova_test(rm, dv = score, wid = id, within = time)
+  expect_true(is.data.frame(get_anova_table(rm.aov, correction = "GG") %>% dplyr::filter(p < 1)))
+  # dispatch is preserved by the reorder
+  expect_true(inherits(u, "anova_test"))
+  expect_true(inherits(g, "grouped_anova_test"))
+})
+
+test_that("anova_test class contract: rstatix_test first, specific class at [2] (#283 revdep)", {
+  # Reverse dependencies (e.g. GimmeMyStats, GimmeMyPlot) dispatch on class()[2]
+  # (method <- sub('_test', '', class(x)[2])). The class vector must keep
+  # 'rstatix_test' first (dplyr/vctrs, #106) AND the specific test class at
+  # position 2, so class()[2] resolves to the test name -- do not silently
+  # reorder these again (that broke revdeps in the 1.0.0 pretest).
+  u <- ToothGrowth %>% anova_test(len ~ dose)
+  expect_identical(class(u), c("rstatix_test", "anova_test", "data.frame"))
+  expect_identical(class(u)[2], "anova_test")            # class[2] -> "anova"
+  # grouped output follows the same contract
+  g <- ToothGrowth %>% group_by(supp) %>% anova_test(len ~ dose)
+  expect_identical(class(g)[1], "rstatix_test")
+  expect_identical(class(g)[2], "grouped_anova_test")
+  # #106 invariant restated: rstatix_test strictly before data.frame
+  expect_lt(match("rstatix_test", class(u)), match("data.frame", class(u)))
+  # the exact downstream idiom must resolve to the intended method
+  method <- sub("_test", "", class(u)[2])
+  method <- ifelse(method == "data.frame", "anova", method)
+  expect_identical(method, "anova")
+})
+
+test_that("add_xy_position on an anova_test gives an informative error, not a class error (#111)", {
+  g <- ToothGrowth %>% group_by(supp) %>% anova_test(len ~ dose)
+  # omnibus ANOVA has no pairwise comparisons: needs a pairwise post-hoc instead
+  expect_error(add_xy_position(g), "group1 and group2")
+})
+
+test_that("anova_test effect.size = c('pes','ges') returns BOTH columns (#180)", {
+  both <- iris %>%
+    anova_test(Sepal.Length ~ Sepal.Width + Species, effect.size = c("pes", "ges")) %>%
+    get_anova_table()
+  expect_true(all(c("pes", "ges") %in% colnames(both)))
+  # both-call values match the standalone single-effect-size computations (no regression)
+  ges <- iris %>% anova_test(Sepal.Length ~ Sepal.Width + Species, effect.size = "ges") %>% get_anova_table()
+  pes <- iris %>% anova_test(Sepal.Length ~ Sepal.Width + Species, effect.size = "pes") %>% get_anova_table()
+  expect_equal(both$ges, ges$ges)
+  expect_equal(both$pes, pes$pes)
+  # single-effect-size output is unchanged: exactly one of the two columns
+  expect_false("pes" %in% colnames(ges))
+  expect_false("ges" %in% colnames(pes))
+})
+
+test_that("repeated-measures anova_test gives clear errors for degenerate designs (#216, #146, #116, #134, #102)", {
+  set.seed(1)
+  good <- data.frame(
+    id = factor(rep(1:8, 3)),
+    time = factor(rep(c("t1", "t2", "t3"), each = 8)),
+    y = rnorm(24)
+  )
+  # valid balanced design still works (no false positive)
+  expect_silent(suppressMessages(anova_test(good, dv = y, wid = id, within = time)))
+  # a subject with >1 observation per within-cell -> clear "duplicated cells" message
+  dup <- rbind(good, good[1, ])
+  expect_error(anova_test(dup, dv = y, wid = id, within = time), "duplicated cells")
+  # wid not repeated across within levels (no complete subject) -> clear message
+  notrep <- data.frame(
+    id = factor(1:18),
+    grp = factor(rep(c("w1", "w2", "w3"), each = 6)),
+    y = rnorm(18)
+  )
+  expect_error(anova_test(notrep, dv = y, wid = id, within = grp), "complete set")
+  # a single incomplete subject is NOT rejected (no false positive)
+  expect_silent(suppressMessages(anova_test(good[-1, ], dv = y, wid = id, within = time)))
+})
