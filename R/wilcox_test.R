@@ -5,9 +5,11 @@ NULL
 #'
 #'
 #'@description Provides a pipe-friendly framework to performs one and two sample
-#'  Wilcoxon tests. Read more:
-#'  \href{https://www.datanovia.com/en/lessons/wilcoxon-test-in-r/}{Wilcoxon in
-#'  R}.
+#'  Wilcoxon tests.
+#'
+#'  See the Datanovia tutorial
+#'  \href{https://www.datanovia.com/learn/biostatistics/two-groups/wilcoxon-test-in-r}{Wilcoxon Test in R}
+#'  for a worked walkthrough.
 #'@inheritParams stats::wilcox.test
 #'@param data a data.frame containing the variables in the formula.
 #'@param formula a formula of the form \code{x ~ group} where \code{x} is a
@@ -34,6 +36,12 @@ NULL
 #'
 #'@param detailed logical value. Default is FALSE. If TRUE, a detailed result is
 #'  shown.
+#'@param effect.size logical. Default is FALSE. If TRUE, a rank effect-size
+#'  column is added: for an independent-samples test \code{cliff.delta} (Cliff's
+#'  delta) and its \code{magnitude}; for a paired test the matched-pairs
+#'  \code{rank.biserial} correlation (no magnitude, as no threshold set is
+#'  calibrated for it), computed on the same paired differences the test used
+#'  (matched by \code{id} when supplied). Not defined for a one-sample test.
 #'@param id (optional) character string specifying the column that contains the
 #'  sample/subject identifier, used only for a \strong{paired} test
 #'  (\code{paired = TRUE}). When supplied, observations of the two compared
@@ -75,6 +83,14 @@ NULL
 #'  about the calculation of the estimate in the details section of the R base
 #'  function \code{wilcox.test()} documentation by typing \code{?wilcox.test} in
 #'  the R console.
+#'
+#'  - With \code{effect.size = TRUE}, an independent-samples test is annotated
+#'  with Cliff's delta and a paired test with the matched-pairs rank-biserial
+#'  correlation, \eqn{(R^+ - R^-)/(R^+ + R^-)} over the signed ranks of the
+#'  paired differences (Kerby, 2014).
+#'
+#'@references Kerby, D. S. (2014). The simple difference formula: An approach to
+#'  teaching nonparametric correlation. \emph{Comprehensive Psychology}, 3, 11.IT.3.1.
 #'
 #'@return return a data frame with some of the following columns: \itemize{
 #'  \item \code{.y.}: the y variable used in the test. \item
@@ -153,18 +169,22 @@ NULL
 #' df %>% wilcox_test(len ~ dose, ref.group = "all")
 #'
 #'@describeIn wilcox_test Wilcoxon test
+#' @seealso The Datanovia tutorial: \href{https://www.datanovia.com/learn/biostatistics/two-groups/wilcoxon-test-in-r}{Wilcoxon Test in R}.
 #'@export
 wilcox_test <- function(
   data, formula, comparisons = NULL, ref.group = NULL,
   p.adjust.method = "holm",
   paired = FALSE, exact = NULL, alternative = "two.sided",
-  mu = 0, conf.level = 0.95, detailed = FALSE, id = NULL, error.as.na = FALSE
+  mu = 0, conf.level = 0.95, detailed = FALSE, id = NULL, error.as.na = FALSE,
+  effect.size = FALSE
 )
 {
   env <- as.list(environment())
   args <- env %>%
     add_item(method = "wilcox_test")
+  if(!isTRUE(effect.size)) args <- remove_item(args, "effect.size")
   params <- env %>%
+    remove_item("effect.size") %>%
     remove_null_items() %>%
     # only request the (Hollander-Wolfe) CI/estimate when detailed = TRUE: it is
     # not shown otherwise, and its uniroot step errors on degenerate/all-tied data (#79, #167)
@@ -173,6 +193,9 @@ wilcox_test <- function(
   outcome <- get_formula_left_hand_side(formula)
   group <- get_formula_right_hand_side(formula)
   number.of.groups <- guess_number_of_groups(data, group)
+  if(isTRUE(effect.size) && number.of.groups < 2)
+    stop("`effect.size = TRUE` requires two or more groups: a rank effect size ",
+         "is not defined for a one-sample Wilcoxon test.", call. = FALSE)
   if(!is.null(id) && !is.null(ref.group) && ref.group %in% c("all", ".all.")){
     stop("`id` (paired matching) is not supported with ref.group = 'all': ",
          "pairing subjects against the pooled grand-mean group is not defined.",
@@ -186,9 +209,132 @@ wilcox_test <- function(
   }
   test.func <- two_sample_test
   if(number.of.groups > 2) test.func <- pairwise_two_sample_test
-  do.call(test.func, params) %>%
+  res <- do.call(test.func, params)
+  if(isTRUE(effect.size)){
+    res <- add_wilcox_effsize(
+      res, data, formula, comparisons = comparisons, ref.group = ref.group,
+      paired = paired, id = id, number.of.groups = number.of.groups
+    )
+  }
+  res %>%
     set_attrs(args = args) %>%
     add_class(c("rstatix_test", "wilcox_test"))
+}
+
+# Join the Wilcoxon effect size onto a Wilcoxon result. For an INDEPENDENT test
+# that is Cliff's delta (`cliff.delta` + Romano `magnitude`); for a PAIRED test
+# it is the matched-pairs rank-biserial correlation (`rank.biserial`, no
+# magnitude -- no threshold set is calibrated for it), computed on the SAME
+# paired differences the test used (id-matched when id is supplied).
+add_wilcox_effsize <- function(res, data, formula, comparisons, ref.group,
+                               paired, id, number.of.groups){
+  if(number.of.groups < 2)
+    stop("`effect.size = TRUE` requires two or more groups: a rank effect size ",
+         "is not defined for a one-sample Wilcoxon test.", call. = FALSE)
+  if(isTRUE(paired)){
+    es <- paired_rank_biserial_table(data, formula, comparisons, ref.group, id)
+    warn_undefined_rank_biserial(es)
+    return(join_effect_size(res, es, "rank.biserial"))
+  }
+  es <- cliff_delta(
+    data, formula, comparisons = comparisons, ref.group = ref.group
+  )
+  join_effect_size(res, keep_only_tbl_df_classes(es), "cliff.delta")
+}
+
+# two_sample_test() suppresses warnings raised inside the stat function, so the
+# undefined matched-pairs rank-biserial (all paired differences zero -> NA) is
+# reported from the exported surface, mirroring warn_undefined_boot_ci().
+warn_undefined_rank_biserial <- function(es){
+  effsize.col <- intersect(c("effsize", "rank.biserial"), colnames(es))[1]
+  if(is.na(effsize.col)) return(invisible(es))
+  undefined <- is.na(es[[effsize.col]])
+  if(any(undefined)){
+    warning(
+      "The matched-pairs rank-biserial correlation is undefined for ",
+      sum(undefined), " of ", nrow(es), " comparison(s): all paired ",
+      "differences are zero, so there is nothing to rank. It is returned as NA.",
+      call. = FALSE
+    )
+  }
+  invisible(es)
+}
+
+# Matched-pairs rank-biserial table, one row per comparison, routed through the
+# same two_sample_test()/pairwise_two_sample_test() engine (with paired = TRUE
+# and, when supplied, id) that the paired Wilcoxon test uses -- so the effect
+# size rests on exactly the paired differences the test did. Returns a tibble
+# with the identifying columns and an `effsize` column (no magnitude).
+paired_rank_biserial_table <- function(data, formula, comparisons, ref.group, id){
+  outcome <- get_formula_left_hand_side(formula)
+  group <- get_formula_right_hand_side(formula)
+  number.of.groups <- guess_number_of_groups(data, group)
+  params <- list(
+    data = data, formula = formula, method = "rank.biserial",
+    paired = TRUE, id = id, ref.group = ref.group,
+    comparisons = comparisons, detailed = FALSE
+  ) %>% remove_null_items()
+  if(number.of.groups > 2 && !is.null(ref.group) && ref.group %in% c("all", ".all.")){
+    params$data <- create_data_with_all_ref_group(data, outcome, group)
+    params$ref.group <- "all"
+  }
+  test.func <- two_sample_test
+  if(number.of.groups > 2) test.func <- pairwise_two_sample_test
+  do.call(test.func, params) %>%
+    select(all_of(c(".y.", "group1", "group2", "estimate")), everything()) %>%
+    rename(effsize = "estimate") %>%
+    keep_only_tbl_df_classes()
+}
+
+# The stat function called by two_sample_test()/pairwise_two_sample_test() for a
+# paired comparison: the matched-pairs rank-biserial correlation of the Wilcoxon
+# signed-rank test. Rank the absolute non-zero paired differences; then
+# r = (R+ - R-) / (R+ + R-), the difference in the proportions of favourable and
+# unfavourable signed ranks (Kerby, 2014). Equals effectsize::rank_biserial(paired
+# = TRUE). x and y are the paired-aligned vectors the engine supplies.
+rank.biserial <- function(x, y = NULL, ci = FALSE, conf.level = 0.95,
+                          ci.type = "perc", nboot = 1000, ...,
+                          boot.parallel = getOption("boot.parallel", "no"),
+                          boot.ncpus = getOption("boot.ncpus", 1L)){
+  DNAME <- paste(deparse(substitute(x)), "and", deparse(substitute(y)))
+  if(is.null(y))
+    stop("The matched-pairs rank-biserial requires two paired samples.", call. = FALSE)
+  differences <- (x - y)[is.finite(x - y)]
+  estimate <- get_rank_biserial(differences)
+  if(ci == TRUE){
+    # Percentile bootstrap over the PAIRS (the differences), as for cohens_d()/
+    # cliff_delta(): resampling the differences keeps each subject's pair intact.
+    pairs.df <- data.frame(diff = differences)
+    stat.func <- function(data, subset) get_rank_biserial(data$diff[subset])
+    CI <- get_boot_ci(
+      pairs.df, stat.func, conf.level = conf.level, type = ci.type,
+      nboot = nboot, parallel = boot.parallel, ncpus = boot.ncpus
+    )
+  }
+  RVAL <- list(
+    statistic = NA, p.value = NA, method = "Matched-pairs rank-biserial",
+    data.name = DNAME, estimate = estimate
+  )
+  if(ci){
+    attr(CI, "conf.level") <- conf.level
+    RVAL <- c(RVAL, list(conf.int = CI))
+  }
+  names(RVAL$estimate) <- "rank-biserial"
+  class(RVAL) <- "htest"
+  RVAL
+}
+
+# Matched-pairs rank-biserial from the paired differences: drop zero differences
+# (Wilcoxon convention), rank |differences|, then (R+ - R-)/(R+ + R-). With no
+# non-zero difference left the statistic is undefined (0/0): NA rather than an
+# error, so the other comparisons of a pairwise call are still computed (same
+# contract as the undefined bootstrap CI, #290).
+get_rank_biserial <- function(differences){
+  differences <- differences[differences != 0]
+  if(length(differences) < 1L) return(NA_real_)
+  ranks <- rank(abs(differences))
+  (sum(ranks[differences > 0]) - sum(ranks[differences < 0])) /
+    sum(ranks)
 }
 
 
@@ -197,10 +343,11 @@ wilcox_test <- function(
 #'@export
 pairwise_wilcox_test <- function(
   data, formula, comparisons = NULL, ref.group = NULL,
-  p.adjust.method = "holm", detailed = FALSE, ...)
+  p.adjust.method = "holm", detailed = FALSE, ..., effect.size = FALSE)
   {
   args <- as.list(environment()) %>%
     .add_item(method = "wilcox_test")
+  if(!isTRUE(effect.size)) args <- remove_item(args, "effect.size")
 
   res <- pairwise_two_sample_test(
     data, formula, method = "wilcox.test",
@@ -208,6 +355,12 @@ pairwise_wilcox_test <- function(
     p.adjust.method = p.adjust.method, detailed = detailed,
     conf.int = detailed, ...
   )
+  if(isTRUE(effect.size)){
+    res <- add_wilcox_effsize(
+      res, data, formula, comparisons = comparisons, ref.group = ref.group,
+      paired = isTRUE(list(...)$paired), id = list(...)$id, number.of.groups = 2
+    )
+  }
   res %>%
     set_attrs(args = args) %>%
     add_class(c("rstatix_test", "wilcox_test"))

@@ -5,14 +5,14 @@ NULL
 #'
 #'@description Provides a pipe-friendly framework to perform different types of
 #'  ANOVA tests, including: \itemize{ \item
-#'  \strong{\href{https://www.datanovia.com/en/lessons/anova-in-r/}{Independent
+#'  \strong{\href{https://www.datanovia.com/learn/biostatistics/anova/anova-in-r}{Independent
 #'  measures ANOVA}}: between-Subjects designs, \item
-#'  \strong{\href{https://www.datanovia.com/en/lessons/repeated-measures-anova-in-r/}{Repeated
+#'  \strong{\href{https://www.datanovia.com/learn/biostatistics/anova/repeated-measures-anova-in-r}{Repeated
 #'   measures ANOVA}}: within-Subjects designs \item
-#'  \strong{\href{https://www.datanovia.com/en/lessons/mixed-anova-in-r/}{Mixed
+#'  \strong{\href{https://www.datanovia.com/learn/biostatistics/anova/mixed-anova-in-r}{Mixed
 #'  ANOVA}}: Mixed within within- and between-Subjects designs, also known as
 #'  split-plot ANOVA and \item
-#'  \strong{\href{https://www.datanovia.com/en/lessons/ancova-in-r/}{ANCOVA:
+#'  \strong{\href{https://www.datanovia.com/learn/biostatistics/anova/ancova-in-r}{ANCOVA:
 #'  Analysis of Covariance}}. }
 #'
 #'  The function is an easy to use wrapper around \code{\link[car]{Anova}()} and
@@ -66,7 +66,10 @@ NULL
 #'  number between 0 and 1 (e.g. \code{0.95}), two columns \code{conf.low} and
 #'  \code{conf.high} are added giving the confidence interval for \strong{partial
 #'  eta squared} (\code{effect.size} must include \code{"pes"}). The interval is
-#'  computed from the noncentral F distribution (Steiger, 2004) in base R. No
+#'  computed from the noncentral F distribution (Steiger, 2004) in base R. The
+#'  interval is two-sided, and matches
+#'  \code{effectsize::eta_squared(partial = TRUE, ci = , alternative = "two.sided")};
+#'  that function defaults to a one-sided interval, whose upper bound is 1. No
 #'  interval is provided for generalized eta squared (\code{"ges"}), which has no
 #'  standard closed-form interval. Default is \code{NULL} (no interval; output
 #'  unchanged).
@@ -94,6 +97,7 @@ NULL
 #'  factors violating the sphericity assumption (i.e., Mauchly's test p-value is
 #'  significant, p <= 0.05). }
 #'@seealso \code{\link{anova_summary}()}, \code{\link{factorial_design}()}
+#'   The Datanovia tutorials: \href{https://www.datanovia.com/learn/biostatistics/anova/anova-in-r}{One-Way ANOVA in R}, \href{https://www.datanovia.com/learn/biostatistics/anova/repeated-measures-anova-in-r}{Repeated Measures ANOVA in R}, \href{https://www.datanovia.com/learn/biostatistics/anova/mixed-anova-in-r}{Mixed ANOVA in R}, \href{https://www.datanovia.com/learn/biostatistics/anova/ancova-in-r}{ANCOVA in R}.
 #'@return return an object of class \code{anova_test} a data frame containing
 #'  the ANOVA table for independent measures ANOVA.
 #'

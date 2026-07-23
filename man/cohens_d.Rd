@@ -16,7 +16,11 @@ cohens_d(
   ci = FALSE,
   conf.level = 0.95,
   ci.type = "perc",
-  nboot = 1000
+  nboot = 1000,
+  boot.parallel = getOption("boot.parallel", "no"),
+  boot.ncpus = getOption("boot.ncpus", 1L),
+  id = NULL,
+  ci.method = c("boot", "analytic")
 )
 }
 \arguments{
@@ -65,6 +69,43 @@ n2).}
 "basic", "perc", or "bca". Passed to \code{boot::boot.ci}.}
 
 \item{nboot}{The number of replications to use for bootstrap.}
+
+\item{boot.parallel}{The type of parallel operation to be used when computing
+the bootstrap confidence interval. Allowed values are \code{"no"} (default),
+\code{"multicore"} and \code{"snow"}. Passed to \code{\link[boot]{boot}()}.
+Defaults to \code{getOption("boot.parallel", "no")}, so it can also be set
+globally with \code{options(boot.parallel = "multicore")}. Only used when
+\code{ci = TRUE}.}
+
+\item{boot.ncpus}{Integer. The number of processes to be used in the parallel
+bootstrap. Defaults to \code{getOption("boot.ncpus", 1L)}. Note that
+\code{boot.parallel} has no effect unless \code{boot.ncpus > 1}. Only used
+when \code{ci = TRUE}.}
+
+\item{id}{(optional) character string with the name of the column holding the
+sample/subject identifier, used only for a \strong{paired} test
+(\code{paired = TRUE}). When supplied, the two groups are matched by
+\code{id} (instead of by row order) before the paired d is computed, as in
+\code{\link{t_test}()}. Only complete pairs (subjects measured in both
+groups) are used.}
+
+\item{ci.method}{the method used to compute the confidence interval when
+\code{ci = TRUE}. Either \code{"boot"} (default) for a percentile bootstrap,
+or \code{"analytic"} for a deterministic interval obtained by inverting the
+noncentral \emph{t} distribution (Steiger, 2004; Cumming & Finch, 2001) --
+the same machinery \code{\link{anova_test}(ci = )} uses for partial
+eta-squared. The analytic interval covers the one-sample, paired and
+two-sample (equal-variance and Welch) cases, is reproducible across runs
+(no seed), and matches \code{effectsize::cohens_d(ci = )}. With
+\code{hedges.correction = TRUE} the estimate and both bounds are scaled by
+the documented \eqn{(N - 3)/(N - 2.25)} approximation, so they are not
+identical to \code{effectsize::hedges_g(ci = )}, which applies the exact
+gamma-function correction at the design's degrees of freedom. The gap is
+proportional to the effect size and grows as the samples shrink.
+When the interval is not defined for a given input (for
+example a degenerate group), the bootstrap is used as a fallback. The
+default \code{"boot"} leaves the returned interval unchanged from previous
+versions.}
 }
 \value{
 return a data frame with some of the following columns: \itemize{
@@ -91,7 +132,13 @@ Compute the effect size for t-test. T-test conventional effect
  If a paired samples t-test was requested, then effect size desired is based
  on the standard deviation of the differences.
 
- It can also returns confidence intervals by bootstap.
+ It can also return confidence intervals for the effect size, either by
+ bootstrap (the default) or by an analytic, deterministic method (see
+ \code{ci.method}).
+
+ See the Datanovia tutorial
+ \href{https://www.datanovia.com/learn/biostatistics/two-groups/cohens-d-effect-size}{Cohen’s d Effect Size in R}
+ for a worked walkthrough.
 }
 \details{
 Quantification of the effect size magnitude is performed using the
@@ -123,5 +170,14 @@ df \%>\% cohens_d(value ~ treatment, paired = TRUE)
  (1992). A power primer. Psychological Bulletin, 112, 155-159. \item Hedges,
  Larry & Olkin, Ingram. (1985). Statistical Methods in Meta-Analysis.
  10.2307/1164953. \item Navarro, Daniel. 2015. Learning Statistics with R: A
- Tutorial for Psychology Students and Other Beginners (Version 0.5). }
+ Tutorial for Psychology Students and Other Beginners (Version 0.5). \item
+ Steiger, J. H. (2004). Beyond the F test: Effect size confidence intervals
+ and tests of close fit in the analysis of variance and contrast analysis.
+ Psychological Methods, 9(2), 164-182. \item Cumming, G., & Finch, S. (2001).
+ A primer on the understanding, use, and calculation of confidence intervals
+ that are based on central and noncentral distributions. Educational and
+ Psychological Measurement, 61(4), 532-574. }
+}
+\seealso{
+The Datanovia tutorial: \href{https://www.datanovia.com/learn/biostatistics/two-groups/cohens-d-effect-size}{Cohen’s d Effect Size in R}.
 }

@@ -10,7 +10,10 @@ kruskal_effsize(
   ci = FALSE,
   conf.level = 0.95,
   ci.type = "perc",
-  nboot = 1000
+  nboot = 1000,
+  boot.parallel = getOption("boot.parallel", "no"),
+  boot.ncpus = getOption("boot.ncpus", 1L),
+  method = c("eta2", "epsilon2")
 )
 }
 \arguments{
@@ -29,6 +32,24 @@ one or multiple levels giving the corresponding groups. For example,
 "basic", "perc", or "bca". Passed to \code{boot::boot.ci}.}
 
 \item{nboot}{The number of replications to use for bootstrap.}
+
+\item{boot.parallel}{The type of parallel operation to be used when computing
+the bootstrap confidence interval. Allowed values are \code{"no"} (default),
+\code{"multicore"} and \code{"snow"}. Passed to \code{\link[boot]{boot}()}.
+Defaults to \code{getOption("boot.parallel", "no")}, so it can also be set
+globally with \code{options(boot.parallel = "multicore")}. Only used when
+\code{ci = TRUE}.}
+
+\item{boot.ncpus}{Integer. The number of processes to be used in the parallel
+bootstrap. Defaults to \code{getOption("boot.ncpus", 1L)}. Note that
+\code{boot.parallel} has no effect unless \code{boot.ncpus > 1}. Only used
+when \code{ci = TRUE}.}
+
+\item{method}{the effect-size metric. Either \code{"eta2"} (default) for the
+bias-corrected eta-squared \code{eta2[H] = (H - k + 1)/(N - k)}, or
+\code{"epsilon2"} for the rank epsilon-squared \code{H/(N - 1)} (Tomczak &
+Tomczak, 2014), which equals \code{effectsize::rank_epsilon_squared()} and is
+not bias-corrected (so a little larger than \code{eta2[H]}).}
 }
 \value{
 return a data frame with some of the following columns: \itemize{
@@ -56,6 +77,10 @@ Compute the effect size for Kruskal-Wallis test as the eta
  its valid \code{[0, 1]} range.
 
 Confidence intervals are calculated by bootstap.
+
+ See the Datanovia tutorial
+ \href{https://www.datanovia.com/learn/biostatistics/anova/kruskal-wallis-test-in-r}{Kruskal-Wallis Test in R}
+ for a worked walkthrough.
 }
 \examples{
 # Load data
@@ -80,4 +105,7 @@ Maciej Tomczak and Ewa Tomczak. The need to report effect size
  http://imaging.mrc-cbu.cam.ac.uk/statswiki/FAQ/effectSize
 
  http://www.psy.gla.ac.uk/~steve/best/effect.html
+}
+\seealso{
+The Datanovia tutorial: \href{https://www.datanovia.com/learn/biostatistics/anova/kruskal-wallis-test-in-r}{Kruskal-Wallis Test in R}.
 }

@@ -18,7 +18,8 @@ t_test(
   conf.level = 0.95,
   detailed = FALSE,
   id = NULL,
-  error.as.na = FALSE
+  error.as.na = FALSE,
+  effect.size = FALSE
 )
 
 pairwise_t_test(
@@ -30,7 +31,8 @@ pairwise_t_test(
   paired = FALSE,
   pool.sd = !paired,
   detailed = FALSE,
-  ...
+  ...,
+  effect.size = FALSE
 )
 }
 \arguments{
@@ -95,6 +97,14 @@ instead of stopping with an error; the other comparisons (or groups, for a
 grouped analysis) are still computed. Default is \code{FALSE} (the comparison
 errors as before).}
 
+\item{effect.size}{logical. Default is FALSE. If TRUE, a \code{cohens.d} column
+(Cohen's d) and its \code{magnitude} are added. \code{t_test()} reports the
+per-pair d (consistent with its per-pair t-test); \code{pairwise_t_test()}
+with the default \code{pool.sd = TRUE} reports the common-SD (pooled-model) d
+so the estimate and the pooled-SD p-value share a variance basis. For a
+paired test the d is computed on the same paired differences the test used,
+matched by \code{id} when it is supplied.}
+
 \item{pool.sd}{logical value used in the function \code{pairwise_t_test()}.
  Switch to allow/disallow the use of a pooled SD.
 
@@ -135,7 +145,11 @@ return a data frame with some the following columns: \itemize{ \item
 }
 \description{
 Provides a pipe-friendly framework to performs one and two sample
- t-tests. Read more: \href{https://www.datanovia.com/en/lessons/t-test-in-r/}{T-test in R}.
+ t-tests.
+
+ See the Datanovia tutorial
+ \href{https://www.datanovia.com/learn/biostatistics/two-groups/t-test-in-r}{T-Test in R}
+ for a worked walkthrough.
 }
 \details{
 - If a list of comparisons is specified, the result of the pairwise tests is
@@ -210,4 +224,5 @@ df \%>\% t_test(len ~ dose, ref.group = "all")
 \seealso{
 \code{\link{rstatix-programming}} for building the formula from
  variable names held in strings (e.g. \code{reformulate()}).
+  The Datanovia tutorial: \href{https://www.datanovia.com/learn/biostatistics/two-groups/t-test-in-r}{T-Test in R}.
 }

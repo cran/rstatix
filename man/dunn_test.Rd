@@ -9,7 +9,8 @@ dunn_test(
   formula,
   p.adjust.method = "holm",
   ref.group = NULL,
-  detailed = FALSE
+  detailed = FALSE,
+  effect.size = FALSE
 )
 }
 \arguments{
@@ -34,6 +35,12 @@ computed over only these comparisons. Note that, unlike \code{t_test()} and
 
 \item{detailed}{logical value. Default is FALSE. If TRUE, a detailed result is
 shown.}
+
+\item{effect.size}{logical. Default is FALSE. If TRUE, an \code{r} column is
+added, the effect size \code{r = Z / sqrt(N)} where \code{Z} is Dunn's
+z-statistic and \code{N} is the total sample size (the whole-sample rank
+variance Dunn's z is standardised on, not the pairwise \code{n1 + n2}). No
+magnitude label is attached: there is no threshold set calibrated for it.}
 }
 \value{
 return a data frame with some of the following columns: \itemize{
@@ -69,6 +76,10 @@ Performs Dunn's test for pairwise multiple comparisons of the
  comparisons). Note that this affects the adjusted p-values: it is not
  equivalent to filtering the full pairwise result afterwards, which would still
  adjust over all pairs.
+
+ See the Datanovia tutorial
+ \href{https://www.datanovia.com/learn/biostatistics/anova/kruskal-wallis-test-in-r}{Kruskal-Wallis Test in R}
+ for a worked walkthrough.
 }
 \details{
 DunnTest performs the post hoc pairwise multiple comparisons
@@ -97,4 +108,7 @@ ToothGrowth \%>\%
 \references{
 Dunn, O. J. (1964) Multiple comparisons using rank sums
  Technometrics, 6(3):241-252.
+}
+\seealso{
+The Datanovia tutorial: \href{https://www.datanovia.com/learn/biostatistics/anova/kruskal-wallis-test-in-r}{Kruskal-Wallis Test in R}.
 }

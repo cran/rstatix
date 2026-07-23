@@ -4,7 +4,11 @@ NULL
 #'
 #'
 #'@description Provides a pipe-friendly framework to performs one and two sample
-#'  t-tests. Read more: \href{https://www.datanovia.com/en/lessons/t-test-in-r/}{T-test in R}.
+#'  t-tests.
+#'
+#'  See the Datanovia tutorial
+#'  \href{https://www.datanovia.com/learn/biostatistics/two-groups/t-test-in-r}{T-Test in R}
+#'  for a worked walkthrough.
 #'@inheritParams stats::t.test
 #'@param data a data.frame containing the variables in the formula.
 #'@param formula a formula of the form \code{x ~ group} where \code{x} is a
@@ -42,6 +46,13 @@ NULL
 #'
 #'@param detailed logical value. Default is FALSE. If TRUE, a detailed result is
 #'  shown.
+#'@param effect.size logical. Default is FALSE. If TRUE, a \code{cohens.d} column
+#'  (Cohen's d) and its \code{magnitude} are added. \code{t_test()} reports the
+#'  per-pair d (consistent with its per-pair t-test); \code{pairwise_t_test()}
+#'  with the default \code{pool.sd = TRUE} reports the common-SD (pooled-model) d
+#'  so the estimate and the pooled-SD p-value share a variance basis. For a
+#'  paired test the d is computed on the same paired differences the test used,
+#'  matched by \code{id} when it is supplied.
 #'@param id (optional) character string specifying the column that contains the
 #'  sample/subject identifier, used only for a \strong{paired} test
 #'  (\code{paired = TRUE}). When supplied, observations of the two compared
@@ -102,6 +113,7 @@ NULL
 #'  \code{mutate(statistic = -statistic, estimate = -estimate)}.
 #'@seealso \code{\link{rstatix-programming}} for building the formula from
 #'  variable names held in strings (e.g. \code{reformulate()}).
+#'   The Datanovia tutorial: \href{https://www.datanovia.com/learn/biostatistics/two-groups/t-test-in-r}{T-Test in R}.
 #' @examples
 #' # Load data
 #' #:::::::::::::::::::::::::::::::::::::::
@@ -150,13 +162,18 @@ t_test <- function(
   data, formula, comparisons = NULL, ref.group = NULL,
   p.adjust.method = "holm",
   paired = FALSE, var.equal = FALSE, alternative = "two.sided",
-  mu = 0, conf.level = 0.95, detailed = FALSE, id = NULL, error.as.na = FALSE
+  mu = 0, conf.level = 0.95, detailed = FALSE, id = NULL, error.as.na = FALSE,
+  effect.size = FALSE
 )
 {
   env <- as.list(environment())
   args <- env %>%
     .add_item(method = "t_test")
+  # Keep effect.size in the stashed args only when it is actually requested, so
+  # the default (FALSE) leaves attr(x, "args") byte-identical to before.
+  if(!isTRUE(effect.size)) args <- remove_item(args, "effect.size")
   params <- env %>%
+    remove_item("effect.size") %>%
     remove_null_items() %>%
     add_item(method = "t.test")
 
@@ -177,9 +194,30 @@ t_test <- function(
   test.func <- two_sample_test
   if(number.of.groups > 2)
     test.func <- pairwise_two_sample_test
-  do.call(test.func, params) %>%
+  res <- do.call(test.func, params)
+  if(isTRUE(effect.size)){
+    res <- add_cohens_d_effsize(
+      res, data, formula, comparisons = comparisons, ref.group = ref.group,
+      paired = paired, var.equal = var.equal, mu = mu, id = id
+    )
+  }
+  res %>%
     set_attrs(args = args) %>%
     add_class(c("rstatix_test", "t_test"))
+}
+
+# Compute Cohen's d per pair (consistent with the per-pair t.test the public
+# t_test() runs) and join it as a `cohens.d` column with a Cohen `magnitude`.
+# When `id` is supplied for a paired test, cohens_d() matches the pairs by
+# subject (same alignment the test used), so the d rests on the same
+# differences as the p-value.
+add_cohens_d_effsize <- function(res, data, formula, comparisons, ref.group,
+                                 paired, var.equal, mu, id){
+  es <- cohens_d(
+    data, formula, comparisons = comparisons, ref.group = ref.group,
+    paired = paired, mu = mu, var.equal = var.equal, id = id
+  )
+  join_effect_size(res, keep_only_tbl_df_classes(es), "cohens.d")
 }
 
 
@@ -190,15 +228,17 @@ t_test <- function(
 pairwise_t_test <- function(
   data, formula, comparisons = NULL, ref.group = NULL,
   p.adjust.method = "holm", paired = FALSE, pool.sd = !paired,
-  detailed = FALSE, ...) {
+  detailed = FALSE, ..., effect.size = FALSE) {
 
   args <- c(as.list(environment()), list(...)) %>%
     .add_item(method = "t_test")
+  if(!isTRUE(effect.size)) args <- remove_item(args, "effect.size")
   if(paired) pool.sd <- FALSE
   if(pool.sd){
     res <- pairwise_t_test_psd(
       data, formula, comparisons = comparisons, ref.group = ref.group,
-      p.adjust.method = p.adjust.method, detailed = detailed, ...
+      p.adjust.method = p.adjust.method, detailed = detailed,
+      effect.size = effect.size, ...
     )
   }
   else{
@@ -208,6 +248,17 @@ pairwise_t_test <- function(
       p.adjust.method = p.adjust.method, paired = paired,
       detailed = detailed, ...
     )
+    if(isTRUE(effect.size)){
+      # pool.sd = FALSE runs per-pair t-tests, so the per-pair Cohen's d
+      # (var.equal matching the test) shares each pair's variance basis. Pass
+      # id so a paired test matched by subject gets the id-aligned d.
+      var.equal <- isTRUE(list(...)$var.equal)
+      es <- cohens_d(
+        data, formula, comparisons = comparisons, ref.group = ref.group,
+        paired = paired, var.equal = var.equal, id = list(...)$id
+      )
+      res <- join_effect_size(res, keep_only_tbl_df_classes(es), "cohens.d")
+    }
   }
   res %>%
     set_attrs(args = args) %>%
@@ -218,7 +269,7 @@ pairwise_t_test <- function(
 pairwise_t_test_psd <- function(
   data, formula, comparisons = NULL, ref.group = NULL,
   p.adjust.method = "holm", alternative = "two.sided",
-  detailed = FALSE
+  detailed = FALSE, effect.size = FALSE
   )
   {
   . <- NULL
@@ -226,7 +277,7 @@ pairwise_t_test_psd <- function(
     results <- data %>%
       doo(pairwise_t_test_psd, formula, comparisons,
           ref.group, p.adjust.method, alternative = alternative,
-          detailed = detailed)
+          detailed = detailed, effect.size = effect.size)
     return(results)
   }
 
@@ -273,6 +324,35 @@ pairwise_t_test_psd <- function(
     add_significance("p") %>%
     add_significance("p.adj")
   if(!detailed) results <- remove_details(results, method = "t.test")
+  if(isTRUE(effect.size)){
+    # pool.sd = TRUE reports pooled-SD p-values, so the matching Cohen's d must use
+    # the SAME common within-group SD (the sqrt of the pooled variance over ALL k
+    # groups = the ANOVA residual SD), not a per-pair SD. This is the pooled-model
+    # d that emmeans::eff_size(sigma = , edf = ) reports, and it keeps the d
+    # recoverable from the pooled-SD t statistic. Oriented group1 - group2.
+    group.means <- tapply(outcome.values, group.values, mean, na.rm = TRUE)
+    group.vars  <- tapply(outcome.values, group.values, stats::var, na.rm = TRUE)
+    # Weight the pooled SD by each group's COMPLETE-CASE count (mean/var already
+    # drop NAs), not get_group_size()'s NA-inclusive row count. Otherwise a
+    # missing outcome value inflates the df weights and common.sd no longer
+    # equals the ANOVA residual SD / emmeans::eff_size (and the SD that
+    # pairwise.t.test used for the pooled p-value).
+    n.complete  <- tapply(outcome.values, group.values, function(v) sum(!is.na(v)))
+    df.each     <- n.complete - 1
+    # A group with a single complete observation has 0 df and an undefined
+    # (NA) variance; it contributes no sum-of-squares to the pool. Zero that
+    # contribution explicitly so `0 * NA` does not poison the whole pooled SD
+    # to NA (which would blank the effect size for every pair). This matches
+    # sigma(lm), where such a group also contributes 0 residual df.
+    ss <- df.each * group.vars[names(n.complete)]
+    ss[df.each == 0] <- 0
+    common.sd   <- sqrt(sum(ss) / sum(df.each))
+    d <- as.numeric(
+      (group.means[results$group1] - group.means[results$group2]) / common.sd
+    )
+    results <- results %>%
+      mutate(cohens.d = d, magnitude = get_cohens_magnitude(d))
+  }
   results
 }
 

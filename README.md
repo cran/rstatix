@@ -1,15 +1,18 @@
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
+<img src="man/figures/logo.png" align="right" height="139" alt="rstatix hex logo" />
+
 [![R build
 status](https://github.com/kassambara/rstatix/workflows/R-CMD-check/badge.svg)](https://github.com/kassambara/rstatix/actions)
-[![CRAN_Status_Badge](https://www.r-pkg.org/badges/version/rstatix)](https://cran.r-project.org/package=rstatix)
+[![CRAN\_Status\_Badge](https://www.r-pkg.org/badges/version/rstatix)](https://cran.r-project.org/package=rstatix)
 [![CRAN
 Checks](https://badges.cranchecks.info/summary/rstatix.svg)](https://cran.r-project.org/web/checks/check_results_rstatix.html)
 [![Downloads](https://cranlogs.r-pkg.org/badges/rstatix)](https://cran.r-project.org/package=rstatix)
 [![Total
 Downloads](https://cranlogs.r-pkg.org/badges/grand-total/rstatix?color=orange)](https://cran.r-project.org/package=rstatix)
 
-# rstatix
+rstatix
+=======
 
 Provides a simple and intuitive pipe-friendly framework, coherent with
 the ‘tidyverse’ design philosophy, for performing basic statistical
@@ -31,7 +34,8 @@ association between categorical variables. The package contains helper
 functions for identifying univariate and multivariate outliers,
 assessing normality and homogeneity of variances.
 
-## Key functions
+Key functions
+-------------
 
 ### Descriptive statistics
 
@@ -47,6 +51,9 @@ assessing normality and homogeneity of variances.
 -   `shapiro_test()` and `mshapiro_test()`: Univariate and multivariate
     Shapiro-Wilk normality test.
 
+Related tutorial: [Descriptive Statistics in
+R](https://www.datanovia.com/learn/biostatistics/assumptions/descriptive-statistics-in-r).
+
 ### Comparing means
 
 -   `t_test()`: perform one-sample, two-sample and pairwise t-tests
@@ -54,13 +61,13 @@ assessing normality and homogeneity of variances.
     Wilcoxon tests
 -   `sign_test()`: perform sign test to determine whether there is a
     median difference between paired or matched observations.
--   `ks_test()`: perform two-sample and pairwise Kolmogorov-Smirnov tests
-    comparing the empirical distributions of a numeric variable between
-    groups.
+-   `ks_test()`: perform two-sample and pairwise Kolmogorov-Smirnov
+    tests comparing the empirical distributions of a numeric variable
+    between groups.
 -   `anova_test()`: an easy-to-use wrapper around `car::Anova()` to
     perform different types of ANOVA tests, including **independent
     measures ANOVA**, **repeated measures ANOVA** and **mixed ANOVA**.
--   `get_anova_test_table()`: extract ANOVA table from `anova_test()`
+-   `get_anova_table()`: extract ANOVA table from `anova_test()`
     results. Can apply sphericity correction automatically in the case
     of within-subject (repeated measures) designs.
 -   `welch_anova_test()`: Welch one-Way ANOVA test. A pipe-friendly
@@ -73,8 +80,13 @@ assessing normality and homogeneity of variances.
     the one-way repeated measures ANOVA test.
 -   `get_comparisons()`: Create a list of possible pairwise comparisons
     between groups.
--   `get_pvalue_position()`: autocompute p-value positions for plotting
-    significance using ggplot2.
+-   `add_xy_position()`, `get_y_position()`: autocompute p-value
+    positions for plotting significance using ggplot2.
+
+Related tutorials: [T-Test in
+R](https://www.datanovia.com/learn/biostatistics/two-groups/t-test-in-r)
+· [Wilcoxon Test in
+R](https://www.datanovia.com/learn/biostatistics/two-groups/wilcoxon-test-in-r).
 
 ### Facilitating ANOVA computation in R
 
@@ -88,16 +100,28 @@ assessing normality and homogeneity of variances.
     assumption checks, such as Mauchly’s test for sphericity in the case
     of repeated measures ANOVA.
 
+Related tutorials: [One-Way ANOVA in
+R](https://www.datanovia.com/learn/biostatistics/anova/anova-in-r) ·
+[Repeated Measures ANOVA in
+R](https://www.datanovia.com/learn/biostatistics/anova/repeated-measures-anova-in-r).
+
 ### Post-hoc analyses
 
+-   `check_test_assumptions()`: checks the normality and
+    homogeneity-of-variance assumptions of a one-way, independent-groups
+    design and returns the omnibus and post-hoc tests the data call for.
+-   `posthoc_test()`: chooses and runs the post-hoc test appropriate to
+    a one-way design, following the standard decision tree: Tukey HSD
+    when the groups are normal with equal variances, Games-Howell when
+    the variances differ, and Dunn’s test when the data are not normal.
 -   `tukey_hsd()`: performs tukey post-hoc tests. Can handle different
     inputs formats: aov, lm, formula.
 -   `dunn_test()`: compute multiple pairwise comparisons following
     Kruskal-Wallis test.
--   `conover_test()`: compute Conover's all-pairs rank comparison test, a
-    more powerful alternative to Dunn's test for post-hoc analysis
+-   `conover_test()`: compute Conover’s all-pairs rank comparison test,
+    a more powerful alternative to Dunn’s test for post-hoc analysis
     following a significant Kruskal-Wallis test.
--   `dunnett_test()`: performs Dunnett's many-to-one comparisons test,
+-   `dunnett_test()`: performs Dunnett’s many-to-one comparisons test,
     comparing each treatment group to a single control group following a
     one-way ANOVA.
 -   `friedman_conover_test()` and `friedman_nemenyi_test()`: post-hoc
@@ -109,6 +133,11 @@ assessing normality and homogeneity of variances.
 -   `emmeans_test()`: pipe-friendly wrapper arround `emmeans` function
     to perform pairwise comparisons of estimated marginal means. Useful
     for post-hoc analyses following up ANOVA/ANCOVA tests.
+
+Related tutorials: [One-Way ANOVA in
+R](https://www.datanovia.com/learn/biostatistics/anova/anova-in-r) ·
+[Kruskal-Wallis Test in
+R](https://www.datanovia.com/learn/biostatistics/anova/kruskal-wallis-test-in-r).
 
 ### Comparing proportions
 
@@ -143,29 +172,48 @@ assessing normality and homogeneity of variances.
 -   `prop_trend_test()`: Performs chi-squared test for trend in
     proportion. This test is also known as Cochran-Armitage trend test.
 
+Related tutorials: [Chi-Square Test of Independence in
+R](https://www.datanovia.com/learn/biostatistics/categorical/chi-square-test-of-independence-in-r)
+· [Proportion Z-Test in
+R](https://www.datanovia.com/learn/biostatistics/two-groups/proportion-z-tests-in-r)
+· [Fisher’s Exact Test in
+R](https://www.datanovia.com/learn/biostatistics/categorical/fisher-exact-test-in-r).
+
 ### Comparing variances
 
 -   `levene_test()`: Pipe-friendly framework to easily compute Levene’s
     test for homogeneity of variance across groups. Handles grouped
     data.
--   `fligner_test()`: Pipe-friendly wrapper around `stats::fligner.test()`
-    to compute the Fligner-Killeen test, a non-parametric test for
-    homogeneity of variances that is robust against departures from
-    normality.
+-   `fligner_test()`: Pipe-friendly wrapper around
+    `stats::fligner.test()` to compute the Fligner-Killeen test, a
+    non-parametric test for homogeneity of variances that is robust
+    against departures from normality.
 -   `box_m()`: Box’s M-test for homogeneity of covariance matrices
+
+Related tutorial: [Homogeneity of Variance Test in
+R](https://www.datanovia.com/learn/biostatistics/assumptions/homogeneity-of-variance-in-r).
 
 ### Effect Size
 
 -   `cohens_d()`: Compute cohen’s d measure of effect size for t-tests.
--   `wilcox_effsize()`: Compute Wilcoxon effect size (r).
+-   `wilcox_effsize()`: Compute Wilcoxon effect size (r) or the
+    rank-biserial correlation.
+-   `cliff_delta()`: Compute Cliff’s delta, a non-parametric effect size
+    for the difference between two groups.
 -   `eta_squared()` and `partial_eta_squared()`: Compute effect size for
-    ANOVA.
+    ANOVA, with optional confidence intervals.
+-   `omega_squared()` and `partial_omega_squared()`: Compute the
+    less-biased omega-squared effect size for a between-subjects ANOVA.
 -   `kruskal_effsize()`: Compute the effect size for Kruskal-Wallis test
     as the eta squared based on the H-statistic.
 -   `friedman_effsize()`: Compute the effect size of Friedman test using
     the Kendall’s W value.
 -   `cramer_v()`: Compute Cramer’s V, which measures the strength of the
-    association between categorical variables.
+    association between categorical variables, with optional confidence
+    intervals.
+
+Related tutorial: [Cohen’s d Effect Size in
+R](https://www.datanovia.com/learn/biostatistics/two-groups/cohens-d-effect-size).
 
 ### Correlation analysis
 
@@ -211,6 +259,11 @@ assessing normality and homogeneity of variances.
 -   `cor_mark_significant()`: add significance levels to a correlation
     matrix.
 
+Related tutorials: [Correlation Test in
+R](https://www.datanovia.com/learn/biostatistics/correlation/correlation-test-in-r)
+· [Correlation Matrix in
+R](https://www.datanovia.com/learn/biostatistics/correlation/correlation-matrix-in-r).
+
 ### Adjusting p-values, formatting and adding significance symbols
 
 -   `adjust_pvalue()`: add an adjusted p-values column to a data frame
@@ -229,9 +282,11 @@ Extract information from statistical test results. Useful for labelling
 plots with test outputs.
 
 -   `get_pwc_label()`: Extract label from pairwise comparisons.
--   `get_test_label()`: Extract label from statistical tests.
--   `create_test_label()`: Create labels from user specified test
-    results.
+-   `get_test_label()` and `create_test_label()`: Extract or create
+    labels from statistical tests, with an APA-7 in-text style
+    (`style = "apa"`).
+-   `tidy()` and `glance()`: convert an `rstatix` test result into a
+    plain tibble, so it flows into `broom`, `gtsummary` and `gt`.
 
 ### Data manipulation helper functions
 
@@ -272,7 +327,8 @@ standard evaluation.
 -   `counts_to_cases()`: converts a contingency table or a data frame of
     counts into a data frame of individual observations.
 
-## Installation and loading
+Installation and loading
+------------------------
 
 -   Install the latest developmental version from
     [GitHub](https://github.com/kassambara/rstatix) as follow:
@@ -296,7 +352,8 @@ library(rstatix)
 library(ggpubr)  # For easy data-visualization
 ```
 
-## Descriptive statistics
+Descriptive statistics
+----------------------
 
 ``` r
 # Summary statistics of some selected variables
@@ -334,7 +391,8 @@ iris %>%
 #> 3 virginica  Sepal.Length    50  6.59 0.636
 ```
 
-## Comparing two means
+Comparing two means
+-------------------
 
 To compare the means of two groups, you can use either the function
 `t_test()` (parametric) or `wilcox_test()` (non-parametric). In the
@@ -403,7 +461,7 @@ p <- ggboxplot(
 p + stat_pvalue_manual(stat.test, label = "p", y.position = 35)
 ```
 
-![](tools/README-unpaired-two-sample-t-test-1.png)
+![](man/figures/README-unpaired-two-sample-t-test-1.png)
 
 -   Customize labels using [glue
     expression](https://github.com/tidyverse/glue):
@@ -413,7 +471,7 @@ p +stat_pvalue_manual(stat.test, label = "T-test, p = {p}",
                       y.position = 36)
 ```
 
-![](tools/README-custoize-p-value-labels-1.png)
+![](man/figures/README-custoize-p-value-labels-1.png)
 
 -   Grouped data: compare supp levels after grouping the data by “dose”
 
@@ -442,7 +500,7 @@ ggboxplot(
   stat_pvalue_manual(stat.test, label = "p.adj", y.position = 35)
 ```
 
-![](tools/README-grouped-two-sample-t-test-1.png)
+![](man/figures/README-grouped-two-sample-t-test-1.png)
 
 ### Compare paired samples
 
@@ -464,7 +522,7 @@ p <- ggpaired(
 p + stat_pvalue_manual(stat.test, label = "p", y.position = 36)
 ```
 
-![](tools/README-paired-t-test-1.png)
+![](man/figures/README-paired-t-test-1.png)
 
 ### Multiple pairwise comparisons
 
@@ -489,7 +547,7 @@ ggboxplot(df, x = "dose", y = "len")+
     )
 ```
 
-![](tools/README-pairwise-comparisons-1.png)
+![](man/figures/README-pairwise-comparisons-1.png)
 
 -   Multiple pairwise comparisons against reference group: each level is
     compared to the ref group
@@ -513,7 +571,7 @@ ggboxplot(df, x = "dose", y = "len", ylim = c(0, 40)) +
     )
 ```
 
-![](tools/README-comaprison-against-reference-group-1.png)
+![](man/figures/README-comaprison-against-reference-group-1.png)
 
 ``` r
 # Remove bracket
@@ -525,7 +583,7 @@ ggboxplot(df, x = "dose", y = "len", ylim = c(0, 40)) +
     )
 ```
 
-![](tools/README-comaprison-against-reference-group-2.png)
+![](man/figures/README-comaprison-against-reference-group-2.png)
 
 -   Multiple pairwise comparisons against all (base-mean): Comparison of
     each group against base-mean.
@@ -537,9 +595,9 @@ stat.test
 #> # A tibble: 3 × 10
 #>   .y.   group1 group2    n1    n2 statistic    df         p   p.adj p.adj.signif
 #> * <chr> <chr>  <chr>  <int> <int>     <dbl> <dbl>     <dbl>   <dbl> <chr>       
-#> 1 len   all    0.5       60    20     5.82   56.4   2.90e-7 8.70e-7 ****        
+#> 1 len   all    0.5       60    20     5.82   56.4   2.90e-7 8.69e-7 ****        
 #> 2 len   all    1         60    20    -0.660  57.5   5.12e-1 5.12e-1 ns          
-#> 3 len   all    2         60    20    -5.61   66.5   4.25e-7 8.70e-7 ****
+#> 3 len   all    2         60    20    -5.61   66.5   4.25e-7 8.69e-7 ****
 # Box plot with horizontal mean line
 ggboxplot(df, x = "dose", y = "len") +
   stat_pvalue_manual(
@@ -550,9 +608,10 @@ ggboxplot(df, x = "dose", y = "len") +
   geom_hline(yintercept = mean(df$len), linetype = 2)
 ```
 
-![](tools/README-comparison-against-base-mean-1.png)
+![](man/figures/README-comparison-against-base-mean-1.png)
 
-## ANOVA test
+ANOVA test
+----------
 
 ``` r
 # One-way ANOVA test
@@ -618,7 +677,8 @@ anova_test(.my.model)
 #> 8  N:P:K   0  12     NA    NA  <NA>    NA
 ```
 
-## Correlation tests
+Correlation tests
+-----------------
 
 ``` r
 # Data preparation
@@ -632,41 +692,42 @@ head(mydata, 3)
 
 # Correlation test between two variables
 mydata %>% cor_test(wt, mpg, method = "pearson")
-#> # A tibble: 1 × 8
-#>   var1  var2    cor statistic        p conf.low conf.high method 
-#>   <chr> <chr> <dbl>     <dbl>    <dbl>    <dbl>     <dbl> <chr>  
-#> 1 wt    mpg   -0.87     -9.56 1.29e-10   -0.934    -0.744 Pearson
+#> # A tibble: 1 × 9
+#>   var1  var2    cor statistic    df        p conf.low conf.high method 
+#>   <chr> <chr> <dbl>     <dbl> <int>    <dbl>    <dbl>     <dbl> <chr>  
+#> 1 wt    mpg   -0.87     -9.56    30 1.29e-10   -0.934    -0.744 Pearson
 
 # Correlation of one variable against all
 mydata %>% cor_test(mpg, method = "pearson")
-#> # A tibble: 5 × 8
-#>   var1  var2    cor statistic        p conf.low conf.high method 
-#>   <chr> <chr> <dbl>     <dbl>    <dbl>    <dbl>     <dbl> <chr>  
-#> 1 mpg   disp  -0.85     -8.75 9.38e-10  -0.923     -0.708 Pearson
-#> 2 mpg   hp    -0.78     -6.74 1.79e- 7  -0.885     -0.586 Pearson
-#> 3 mpg   drat   0.68      5.10 1.78e- 5   0.436      0.832 Pearson
-#> 4 mpg   wt    -0.87     -9.56 1.29e-10  -0.934     -0.744 Pearson
-#> 5 mpg   qsec   0.42      2.53 1.71e- 2   0.0820     0.670 Pearson
+#> # A tibble: 5 × 9
+#>   var1  var2    cor statistic    df        p conf.low conf.high method 
+#>   <chr> <chr> <dbl>     <dbl> <int>    <dbl>    <dbl>     <dbl> <chr>  
+#> 1 mpg   disp  -0.85     -8.75    30 9.38e-10  -0.923     -0.708 Pearson
+#> 2 mpg   hp    -0.78     -6.74    30 1.79e- 7  -0.885     -0.586 Pearson
+#> 3 mpg   drat   0.68      5.10    30 1.78e- 5   0.436      0.832 Pearson
+#> 4 mpg   wt    -0.87     -9.56    30 1.29e-10  -0.934     -0.744 Pearson
+#> 5 mpg   qsec   0.42      2.53    30 1.71e- 2   0.0820     0.670 Pearson
 
 # Pairwise correlation test between all variables
 mydata %>% cor_test(method = "pearson")
-#> # A tibble: 36 × 8
-#>    var1  var2    cor statistic        p conf.low conf.high method 
-#>    <chr> <chr> <dbl>     <dbl>    <dbl>    <dbl>     <dbl> <chr>  
-#>  1 mpg   mpg    1       Inf    0          1          1     Pearson
-#>  2 mpg   disp  -0.85     -8.75 9.38e-10  -0.923     -0.708 Pearson
-#>  3 mpg   hp    -0.78     -6.74 1.79e- 7  -0.885     -0.586 Pearson
-#>  4 mpg   drat   0.68      5.10 1.78e- 5   0.436      0.832 Pearson
-#>  5 mpg   wt    -0.87     -9.56 1.29e-10  -0.934     -0.744 Pearson
-#>  6 mpg   qsec   0.42      2.53 1.71e- 2   0.0820     0.670 Pearson
-#>  7 disp  mpg   -0.85     -8.75 9.38e-10  -0.923     -0.708 Pearson
-#>  8 disp  disp   1       Inf    0          1          1     Pearson
-#>  9 disp  hp     0.79      7.08 7.14e- 8   0.611      0.893 Pearson
-#> 10 disp  drat  -0.71     -5.53 5.28e- 6  -0.849     -0.481 Pearson
+#> # A tibble: 36 × 9
+#>    var1  var2    cor statistic    df        p conf.low conf.high method 
+#>    <chr> <chr> <dbl>     <dbl> <int>    <dbl>    <dbl>     <dbl> <chr>  
+#>  1 mpg   mpg    1       Inf       30 0          1          1     Pearson
+#>  2 mpg   disp  -0.85     -8.75    30 9.38e-10  -0.923     -0.708 Pearson
+#>  3 mpg   hp    -0.78     -6.74    30 1.79e- 7  -0.885     -0.586 Pearson
+#>  4 mpg   drat   0.68      5.10    30 1.78e- 5   0.436      0.832 Pearson
+#>  5 mpg   wt    -0.87     -9.56    30 1.29e-10  -0.934     -0.744 Pearson
+#>  6 mpg   qsec   0.42      2.53    30 1.71e- 2   0.0820     0.670 Pearson
+#>  7 disp  mpg   -0.85     -8.75    30 9.38e-10  -0.923     -0.708 Pearson
+#>  8 disp  disp   1       Inf       30 0          1          1     Pearson
+#>  9 disp  hp     0.79      7.08    30 7.14e- 8   0.611      0.893 Pearson
+#> 10 disp  drat  -0.71     -5.53    30 5.28e- 6  -0.849     -0.481 Pearson
 #> # ℹ 26 more rows
 ```
 
-## Correlation matrix
+Correlation matrix
+------------------
 
 ``` r
 # Compute correlation matrix
@@ -692,9 +753,9 @@ cor.mat %>% cor_get_pval()
 #> 1 mpg     0        9.38e-10 0.000000179  1.78e-  5 1.29e-10 0.0171    
 #> 2 disp    9.38e-10 0        0.0000000714 5.28e-  6 1.22e-11 0.0131    
 #> 3 hp      1.79e- 7 7.14e- 8 0            9.99e-  3 4.15e- 5 0.00000577
-#> 4 drat    1.78e- 5 5.28e- 6 0.00999      7.44e-232 4.78e- 6 0.62      
+#> 4 drat    1.78e- 5 5.28e- 6 0.00999      7.44e-232 4.78e- 6 0.620     
 #> 5 wt      1.29e-10 1.22e-11 0.0000415    4.78e-  6 0        0.339     
-#> 6 qsec    1.71e- 2 1.31e- 2 0.00000577   6.2 e-  1 3.39e- 1 0
+#> 6 qsec    1.71e- 2 1.31e- 2 0.00000577   6.20e-  1 3.39e- 1 0
 
 # Replacing correlation coefficients by symbols
 #::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -730,44 +791,73 @@ cor.mat %>%
   cor_plot()
 ```
 
-![](tools/README-unnamed-chunk-10-1.png)
+![](man/figures/README-unnamed-chunk-10-1.png)
 
-## Related articles
+Related articles
+----------------
 
--   [How to Add P-Values onto Basic
-    GGPLOTS](https://www.datanovia.com/en/blog/how-to-add-p-values-onto-basic-ggplots/)
--   [How to Add Adjusted P-values to a Multi-Panel
-    GGPlot](https://www.datanovia.com/en/blog/ggpubr-how-to-add-adjusted-p-values-to-a-multi-panel-ggplot/)
--   [How to Add P-values to GGPLOT
-    Facets](https://www.datanovia.com/en/blog/how-to-add-p-values-to-ggplot-facets/)
--   [How to Add P-Values Generated Elsewhere to a
-    GGPLOT](https://www.datanovia.com/en/blog/ggpubr-how-to-add-p-values-generated-elsewhere-to-a-ggplot/)
--   [How to Add P-Values onto a Grouped GGPLOT using the GGPUBR R
-    Package](https://www.datanovia.com/en/blog/how-to-add-p-values-onto-a-grouped-ggplot-using-the-ggpubr-r-package/)
--   [How to Create Stacked Bar Plots with Error Bars and
-    P-values](https://www.datanovia.com/en/blog/how-to-create-stacked-bar-plots-with-error-bars-and-p-values/)
--   [How to Add P-Values onto Horizontal
-    GGPLOTS](https://www.datanovia.com/en/blog/how-to-add-p-values-onto-horizontal-ggplots/)
--   [Add P-values and Significance Levels to
-    ggplots](https://www.sthda.com/english/articles/24-ggpubr-publication-ready-plots/76-add-p-values-and-significance-levels-to-ggplots/)
--   [Comparing Means of Two Groups in
-    R](https://www.datanovia.com/en/courses/comparing-means-of-two-groups-in-r/)
-    -   [T-test in R](https://www.datanovia.com/en/lessons/t-test-in-r/)
+-   Adding p-values to ggplots
+    -   [P-values from Tests on ggplots in R
+        (rstatix)](https://www.datanovia.com/learn/data-visualization/ggpubr/p-values-from-tests)
+    -   [Auto P-values in ggplot with geom\_pwc
+        (ggpubr)](https://www.datanovia.com/learn/data-visualization/ggpubr/auto-p-values)
+    -   [Add P-values to ggplots in R
+        (ggpubr)](https://www.datanovia.com/learn/data-visualization/ggpubr/add-p-values)
+    -   [Stacked Bar Plot with Error Bars & P-values in
+        R](https://www.datanovia.com/learn/data-visualization/ggpubr/stacked-bar-pvalues)
+-   [Comparing Two
+    Groups](https://www.datanovia.com/learn/biostatistics/two-groups/)
+    -   [T-Test in
+        R](https://www.datanovia.com/learn/biostatistics/two-groups/t-test-in-r)
     -   [Wilcoxon Test in
-        R](https://www.datanovia.com/en/lessons/wilcoxon-test-in-r/)
+        R](https://www.datanovia.com/learn/biostatistics/two-groups/wilcoxon-test-in-r)
     -   [Sign Test in
-        R](https://www.datanovia.com/en/lessons/sign-test-in-r/)
--   [Comparing Multiple Means in
-    R](https://www.datanovia.com/en/courses/comparing-multiple-means-in-r/)
-    -   [ANOVA in R](https://www.datanovia.com/en/lessons/anova-in-r/)
+        R](https://www.datanovia.com/learn/biostatistics/two-groups/sign-test-in-r)
+    -   [Proportion Z-Test in
+        R](https://www.datanovia.com/learn/biostatistics/two-groups/proportion-z-tests-in-r)
+-   [The ANOVA
+    Family](https://www.datanovia.com/learn/biostatistics/anova/)
+    -   [One-Way ANOVA in
+        R](https://www.datanovia.com/learn/biostatistics/anova/anova-in-r)
     -   [Repeated Measures ANOVA in
-        R](https://www.datanovia.com/en/lessons/repeated-measures-anova-in-r/)
+        R](https://www.datanovia.com/learn/biostatistics/anova/repeated-measures-anova-in-r)
     -   [Mixed ANOVA in
-        R](https://www.datanovia.com/en/lessons/mixed-anova-in-r/)
-    -   [ANCOVA in R](https://www.datanovia.com/en/lessons/ancova-in-r/)
-    -   [One-Way MANOVA in
-        R](https://www.datanovia.com/en/lessons/one-way-manova-in-r/)
+        R](https://www.datanovia.com/learn/biostatistics/anova/mixed-anova-in-r)
+    -   [ANCOVA in
+        R](https://www.datanovia.com/learn/biostatistics/anova/ancova-in-r)
+    -   [MANOVA in
+        R](https://www.datanovia.com/learn/biostatistics/anova/manova-in-r)
     -   [Kruskal-Wallis Test in
-        R](https://www.datanovia.com/en/lessons/kruskal-wallis-test-in-r/)
+        R](https://www.datanovia.com/learn/biostatistics/anova/kruskal-wallis-test-in-r)
     -   [Friedman Test in
-        R](https://www.datanovia.com/en/lessons/friedman-test-in-r/)
+        R](https://www.datanovia.com/learn/biostatistics/anova/friedman-test-in-r)
+-   Categorical data
+    -   [Chi-Square Test of Independence in
+        R](https://www.datanovia.com/learn/biostatistics/categorical/chi-square-test-of-independence-in-r)
+    -   [Chi-Square Goodness-of-Fit Test in
+        R](https://www.datanovia.com/learn/biostatistics/categorical/chi-square-goodness-of-fit-test-in-r)
+    -   [Fisher’s Exact Test in
+        R](https://www.datanovia.com/learn/biostatistics/categorical/fisher-exact-test-in-r)
+    -   [McNemar’s Test in
+        R](https://www.datanovia.com/learn/biostatistics/categorical/mcnemar-test-in-r)
+    -   [Cochran’s Q Test in
+        R](https://www.datanovia.com/learn/biostatistics/categorical/cochran-q-test-in-r)
+    -   [Cochran-Armitage Trend Test in
+        R](https://www.datanovia.com/learn/biostatistics/categorical/cochran-armitage-trend-test-in-r)
+-   Correlation
+    -   [Correlation Test in
+        R](https://www.datanovia.com/learn/biostatistics/correlation/correlation-test-in-r)
+    -   [Correlation Matrix in
+        R](https://www.datanovia.com/learn/biostatistics/correlation/correlation-matrix-in-r)
+-   Effect size
+    -   [Cohen’s d Effect Size in
+        R](https://www.datanovia.com/learn/biostatistics/two-groups/cohens-d-effect-size)
+-   Assumptions and descriptives
+    -   [Statistical Tests and Assumptions in
+        R](https://www.datanovia.com/learn/biostatistics/assumptions/statistical-tests-and-assumptions)
+    -   [Normality Test in
+        R](https://www.datanovia.com/learn/biostatistics/assumptions/normality-test-in-r)
+    -   [Homogeneity of Variance Test in
+        R](https://www.datanovia.com/learn/biostatistics/assumptions/homogeneity-of-variance-in-r)
+    -   [Descriptive Statistics in
+        R](https://www.datanovia.com/learn/biostatistics/assumptions/descriptive-statistics-in-r)

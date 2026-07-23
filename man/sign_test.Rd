@@ -4,6 +4,11 @@
 \alias{sign_test}
 \alias{pairwise_sign_test}
 \title{Sign Test}
+\source{
+Adapted from \code{DescTools::SignTest()} and
+ \code{DescTools::MedianCI()} (Andri Signorell), distributed under GPL
+ (>= 2). See \code{\link{rstatix-references}}.
+}
 \usage{
 sign_test(
   data,
@@ -84,8 +89,11 @@ return a data frame with some the following columns: \itemize{ \item
  holding the test arguments.
 }
 \description{
-Performs one-sample and two-sample sign tests. Read more:
- \href{https://www.datanovia.com/en/lessons/sign-test-in-r/}{Sign Test in R}.
+Performs one-sample and two-sample sign tests.
+
+ See the Datanovia tutorial
+ \href{https://www.datanovia.com/learn/biostatistics/two-groups/sign-test-in-r}{Sign Test in R}
+ for a worked walkthrough.
 }
 \section{Functions}{
 \itemize{
@@ -95,8 +103,10 @@ Performs one-sample and two-sample sign tests. Read more:
 
 }}
 \note{
-This function is a reimplementation of the function \code{SignTest()}
- from the \code{DescTools} package.
+The sign test and the confidence interval for the median are adapted,
+ with modifications, from \code{DescTools::SignTest()} and
+ \code{DescTools::MedianCI()}, written by Andri Signorell. The results match
+ \code{DescTools::SignTest()}.
 }
 \examples{
 # Load data
@@ -134,4 +144,7 @@ df \%>\% sign_test(len ~ dose)
 df \%>\% sign_test(len ~ dose, ref.group = "0.5")
 
 
+}
+\seealso{
+The Datanovia tutorial: \href{https://www.datanovia.com/learn/biostatistics/two-groups/sign-test-in-r}{Sign Test in R}.
 }

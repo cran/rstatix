@@ -16,6 +16,10 @@ NULL
 #'  it does not borrow the residual rank variance and is therefore more
 #'  conservative.
 #'
+#'  See the Datanovia tutorial
+#'  \href{https://www.datanovia.com/learn/biostatistics/anova/friedman-test-in-r}{Friedman Test in R}
+#'  for a worked walkthrough.
+#'
 #'@inheritParams friedman_conover_test
 #'@param detailed logical value. If TRUE, returns the rank-sum estimate and the
 #'  test method in the output.
@@ -41,12 +45,18 @@ NULL
 #'  the studentized range distribution with \eqn{k} groups and infinite degrees
 #'  of freedom.
 #'
+#'  The p-values match \code{PMCMRplus::frdAllPairsNemenyiTest()}. That function
+#'  reports the magnitude of the statistic; the value returned here carries the
+#'  sign of the rank-sum difference between the two groups, so the two agree
+#'  only where that difference is positive.
+#'
 #'@references Nemenyi, P. (1963) Distribution-free Multiple Comparisons. PhD
 #'  Thesis, Princeton University.
 #'
 #'  Hollander, M., Wolfe, D. A. (1973) Nonparametric Statistical Methods. Wiley.
 #' @seealso \code{\link{friedman_test}}, \code{\link{friedman_conover_test}},
 #'   \code{\link{friedman_effsize}}
+#'   The Datanovia tutorial: \href{https://www.datanovia.com/learn/biostatistics/anova/friedman-test-in-r}{Friedman Test in R}.
 #' @examples
 #' # A balanced complete block design: 3 treatments measured on 6 subjects
 #' df <- data.frame(

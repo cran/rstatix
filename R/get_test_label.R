@@ -4,6 +4,10 @@ NULL
 #' Extract Label Information from Statistical Tests
 #' @description Extracts label information from statistical tests. Useful for
 #'   labelling plots with test outputs.
+#'
+#'  See the Datanovia tutorial
+#'  \href{https://www.datanovia.com/learn/data-visualization/ggpubr/p-values-from-tests}{P-values from Tests on ggplots in R (rstatix)}
+#'  for a worked walkthrough.
 #' @param stat.test statistical test results returned by \code{rstatix}
 #'   functions.
 #' @param description the test description used as the prefix of the label.
@@ -40,6 +44,26 @@ NULL
 #'   example, for \code{Cohens d} statistic, \code{effect.size.text = "d"}. You
 #'   can also use plotmath expression as follow \code{quote(italic("d"))}.
 #' @param detailed logical value. If TRUE, returns detailed label.
+#' @param style the label style. Either \code{"classic"} (default, the historical
+#'   format) or \code{"apa"} for an APA-7 in-text statistical report: the leading
+#'   test-name label is dropped, the p-value is formatted APA-style
+#'   (\code{p = .023}, \code{p < .001}), and the effect size is shown with its
+#'   confidence interval when the object carries one (e.g. \code{anova_test(ci = )}),
+#'   otherwise as a point estimate, otherwise omitted. Bounded effect sizes
+#'   (\eqn{\eta^2}, \emph{r}, Cliff's \eqn{\delta}, rank-biserial) drop the
+#'   leading zero; Cohen's \emph{d} keeps it.
+#' @param effect.size.ci a length-two numeric \code{c(low, high)} giving the
+#'   effect size's confidence interval, appended after the effect size when
+#'   \code{style = "apa"}. Defaults to \code{NA} (no interval).
+#' @param effect.size.bounded logical. Whether the effect size lies in
+#'   \code{[-1, 1]} (e.g. \eqn{\eta^2}, \emph{r}, Cliff's \eqn{\delta}); used by
+#'   \code{style = "apa"} to decide whether to drop the leading zero. Defaults to
+#'   \code{TRUE}; set \code{FALSE} for Cohen's \emph{d}.
+#' @param effect.size.ci.level the confidence level \code{effect.size.ci} was
+#'   computed at, shown before the interval (e.g. \code{95\%} CI). Defaults to
+#'   \code{0.95}.
+#' @references American Psychological Association (2020). \emph{Publication Manual
+#'   of the American Psychological Association} (7th ed.).
 #' @return a text label or an expression to pass to a plotting function.
 #' @examples
 #' # Load data
@@ -103,6 +127,7 @@ NULL
 #'
 #'
 #' @describeIn get_test_label Extract label from pairwise comparisons.
+#' @seealso The Datanovia tutorial: \href{https://www.datanovia.com/learn/data-visualization/ggpubr/p-values-from-tests}{P-values from Tests on ggplots in R (rstatix)}.
 #' @export
 get_pwc_label <- function(stat.test, type = c("expression", "text")){
   methods <- get_pairwise_comparison_methods()
@@ -133,8 +158,10 @@ get_pwc_label <- function(stat.test, type = c("expression", "text")){
 #' @export
 get_test_label <- function(stat.test, description = NULL, p.col = "p",
                            type = c("expression", "text"),
-                           correction = c("auto", "GG", "HF", "none"), row = NULL, detailed = FALSE){
+                           correction = c("auto", "GG", "HF", "none"), row = NULL, detailed = FALSE,
+                           style = c("classic", "apa")){
   type = match.arg(type)
+  style = match.arg(style)
   allowed.tests <- c(
     get_pairwise_comparison_methods(),
     kruskal_test = "Kruskal-Wallis",
@@ -151,7 +178,20 @@ get_test_label <- function(stat.test, description = NULL, p.col = "p",
   stop_ifnot_class(stat.test, .class = names(allowed.tests))
   is_anova_test <- inherits(stat.test, "anova_test")
   anova.n <- NA
+  anova.ci.level <- NA
+  anova.simple <- FALSE
   if(is_anova_test){
+    # the confidence level anova_test(ci = ) was run with; needed below because
+    # the slice strips the attributes that carry it
+    ci.arg <- attr(stat.test, "args")$ci
+    if(is.numeric(ci.arg) && length(ci.arg) == 1) anova.ci.level <- ci.arg
+    # A plain one-table result (between-subjects, or a within design with no
+    # sphericity machinery) displays the same df the stored interval was
+    # computed at. A list result carries sphericity corrections that
+    # get_anova_table() may apply to DFn/DFd, while conf.low/conf.high stay at
+    # the uncorrected df -- so re-deriving the interval from the displayed df
+    # would contradict the object's own interval (see below).
+    anova.simple <- is.data.frame(stat.test)
     stat.test <- get_anova_table(stat.test, correction = correction)
     # derive the sample size now, before the slice below strips the anova_test
     # class/attributes that get_n() needs to compute n for ANOVA (#150). The total
@@ -167,12 +207,47 @@ get_test_label <- function(stat.test, description = NULL, p.col = "p",
 
   statistic.text <- get_statistic_text(stat.test, type = type)
   statistic <- get_statistic(stat.test)
-  df <- get_df(stat.test)
+  # APA-7 writes two degrees of freedom with a space: F(2, 57); the classic
+  # style keeps its historical compact form F(2,57).
+  df <- get_df(stat.test, sep = if(style == "apa") ", " else ",")
   n <- get_n(stat.test)
   if(is_anova_test) n <- anova.n   # use the n derived before the class was stripped (#150)
-  effect <- get_effect_size(stat.test, type)
+  effect <- get_effect_size(stat.test, type, style = style)
   effect.size <- effect$value
   effect.size.text <- effect$text
+  effect.size.bounded <- isTRUE(effect$bounded)
+  # Effect-size confidence interval for the APA style. Only taken when it is
+  # unambiguously the SHOWN effect size's interval: for anova_test(ci = ), the
+  # conf.low/conf.high computed by the noncentral-F inversion belong to PARTIAL
+  # eta-squared (pes). If the label is showing generalized eta-squared (ges) --
+  # e.g. anova_test(effect.size = c("ges", "pes"), ci = ) -- pairing that ges
+  # estimate with the pes interval would be wrong, so the CI is attached only
+  # when the displayed effect size IS pes. For other tests conf.low/conf.high is
+  # the location-difference interval, not the effect size's, so it is never used.
+  effect.size.ci <- NA
+  effect.size.ci.level <- 0.95
+  if(style == "apa" && is_anova_test && identical(effect$column, "pes") &&
+     nrow(stat.test) == 1 && !is.na(anova.ci.level) &&
+     all(c("conf.low", "conf.high") %in% colnames(stat.test))){
+    effect.size.ci <- c(stat.test$conf.low[1], stat.test$conf.high[1])
+    effect.size.ci.level <- anova.ci.level
+    # The table stores pes/conf.low/conf.high rounded to 3 decimals
+    # (anova_summary()), and rounding those again to APA's 2 decimals can move
+    # the last digit (a true bound 0.7854 is stored as 0.785 and would print
+    # ".78" instead of ".79"). Re-derive the estimate and the interval from the
+    # row's F and df, which pins them well beyond 2 displayed decimals. Only
+    # for a plain table (anova.simple): a sphericity-corrected row displays
+    # corrected df while the stored interval is defined at the uncorrected df,
+    # so there the stored bounds are shown as they are.
+    if(anova.simple && all(c("F", "DFn", "DFd") %in% colnames(stat.test))){
+      effect.size.ci <- partial_eta_squared_ci(
+        stat.test$F[1], stat.test$DFn[1], stat.test$DFd[1],
+        conf.level = anova.ci.level
+      )
+      effect.size <- stat.test$F[1] * stat.test$DFn[1] /
+        (stat.test$F[1] * stat.test$DFn[1] + stat.test$DFd[1])
+    }
+  }
 
   if(missing(description)){
     description <- get_description(stat.test)
@@ -194,7 +269,9 @@ get_test_label <- function(stat.test, description = NULL, p.col = "p",
       statistic = statistic, parameter = df,
       effect.size = effect.size
     )
-  if(is.numeric(stat.test$p)){
+  # Classic keeps its pre-formatted p string; the APA style formats the raw
+  # numeric p itself (three decimals, no leading zero, "p < .001").
+  if(style == "classic" && is.numeric(stat.test$p)){
     stat.test$p <- p_format(stat.test$p, 3)
   }
 
@@ -208,7 +285,10 @@ get_test_label <- function(stat.test, description = NULL, p.col = "p",
       description, statistic.text = statistic.text,
       statistic = df$statistic, parameter = df$parameter,
       p = df$p, n = df$n,  effect.size = df$effect.size,
-      effect.size.text = effect.size.text, detailed = detailed
+      effect.size.text = effect.size.text, detailed = detailed,
+      style = style, effect.size.ci = effect.size.ci,
+      effect.size.ci.level = effect.size.ci.level,
+      effect.size.bounded = effect.size.bounded
     )
   }
   if(nrow(stat.test) > 1){
@@ -227,9 +307,12 @@ get_test_label <- function(stat.test, description = NULL, p.col = "p",
 #' @export
 create_test_label <- function(
   statistic.text, statistic, p, parameter = NA, description = NULL, n = NA, effect.size = NA, effect.size.text = NA,
-  type = c("expression", "text"), detailed = FALSE)
+  type = c("expression", "text"), detailed = FALSE,
+  style = c("classic", "apa"), effect.size.ci = NA, effect.size.bounded = TRUE,
+  effect.size.ci.level = 0.95)
 {
   type <- match.arg(type)
+  style <- match.arg(style)
   if(!is.null(description)){
     if(description != ""){
       description <- paste0(description, ", ")
@@ -246,7 +329,10 @@ create_test_label <- function(
     description = description, statistic.text = statistic.text,
     statistic = statistic, parameter = parameter,
     p = p, n = n,  effect.size = effect.size,
-    effect.size.text = effect.size.text, detailed = detailed
+    effect.size.text = effect.size.text, detailed = detailed,
+    style = style, effect.size.ci = effect.size.ci,
+    effect.size.bounded = effect.size.bounded,
+    effect.size.ci.level = effect.size.ci.level
   )
 }
 
@@ -261,9 +347,18 @@ create_test_label <- function(
 # n: sample count
 create_test_label.expression <- function(
   description, statistic.text, statistic, parameter, p,  n = NA,
-  effect.size = NA, effect.size.text = NA, detailed = FALSE)
+  effect.size = NA, effect.size.text = NA, detailed = FALSE,
+  style = "classic", effect.size.ci = NA, effect.size.bounded = TRUE,
+  effect.size.ci.level = 0.95)
   {
-
+  if(style == "apa"){
+    return(apa_test_label.expression(
+      statistic.text = statistic.text, statistic = statistic, parameter = parameter,
+      p = p, effect.size = effect.size, effect.size.text = effect.size.text,
+      effect.size.ci = effect.size.ci, effect.size.bounded = effect.size.bounded,
+      effect.size.ci.level = effect.size.ci.level
+    ))
+  }
   if(is.na(parameter)) parameter <- ""
   else parameter <- paste0("(", parameter, ")")
   # Sample count
@@ -314,7 +409,18 @@ create_test_label.expression <- function(
 
 create_test_label.text <- function(description, statistic.text,
                                 statistic, parameter, p,  n = NA,
-                                effect.size = NA, effect.size.text = NA,  detailed = FALSE){
+                                effect.size = NA, effect.size.text = NA,  detailed = FALSE,
+                                style = "classic", effect.size.ci = NA,
+                                effect.size.bounded = TRUE,
+                                effect.size.ci.level = 0.95){
+  if(style == "apa"){
+    return(apa_test_label.text(
+      statistic.text = statistic.text, statistic = statistic, parameter = parameter,
+      p = p, effect.size = effect.size, effect.size.text = effect.size.text,
+      effect.size.ci = effect.size.ci, effect.size.bounded = effect.size.bounded,
+      effect.size.ci.level = effect.size.ci.level
+    ))
+  }
   if(is.na(parameter)) parameter <- ""
   else parameter <- paste0("(", parameter, ")")
   if(is.na(effect.size)) effect.size <- ""
@@ -334,6 +440,112 @@ create_test_label.text <- function(description, statistic.text,
   else{
     paste0(description, "p = ", p)
   }
+}
+
+# APA-7 in-text statistical report string (no leading label, italics unavailable
+# in plain text): "t(58) = 2.31, p = .025, d = 0.61, 95% CI [0.08, 1.13]".
+apa_test_label.text <- function(statistic.text, statistic, parameter, p,
+                                effect.size, effect.size.text,
+                                effect.size.ci, effect.size.bounded,
+                                effect.size.ci.level = 0.95){
+  param <- if(is.na(parameter)) "" else paste0("(", parameter, ")")
+  stat.part <- if(is.na(statistic)) ""
+               else paste0(statistic.text, param, " = ", apa_format_statistic(statistic), ", ")
+  es.part <- ""
+  if(!is.na(effect.size)){
+    es.part <- paste0(", ", effect.size.text, " = ",
+                      apa_format_effsize_value(effect.size, effect.size.bounded))
+    if(length(effect.size.ci) == 2 && !anyNA(effect.size.ci)){
+      es.part <- paste0(
+        es.part, ", ", apa_ci_prefix(effect.size.ci.level), " [",
+        apa_format_effsize_value(effect.size.ci[1], effect.size.bounded), ", ",
+        apa_format_effsize_value(effect.size.ci[2], effect.size.bounded), "]"
+      )
+    }
+  }
+  paste0(stat.part, apa_format_p(p), es.part)
+}
+
+# APA-7 reports inferential statistics to two decimals, trailing zero kept
+# ("F(2, 20) = 14.30", not "14.3"), matching the fixed-width p and effect-size
+# formatters below.
+apa_format_statistic <- function(statistic){
+  formatC(round(unname(statistic), 2), format = "f", digits = 2)
+}
+# "95% CI" / "90% CI": the level the interval was actually computed at.
+apa_ci_prefix <- function(level){
+  paste0(formatC(level * 100, format = "fg"), "% CI")
+}
+# APA-7 p-value: "p < .001" or "p = .023" (three decimals, no leading zero).
+apa_format_p <- function(p){
+  paste0("p", apa_p_suffix(p))
+}
+# The part after "p": " < .001" or " = .023". Shared by the text and expression
+# builders (the latter renders the leading italic "p" via plotmath).
+apa_p_suffix <- function(p){
+  if(length(p) != 1 || is.na(p)) return(" = NA")
+  if(is.character(p)){
+    # A pre-formatted p string ("<0.0001", "0.023") reaches here from
+    # create_test_label(). Parse it: comparing the string itself against a
+    # number would collate locale-dependently, and round() would error.
+    p.chr <- gsub("\\s", "", p)
+    is.less <- grepl("^<", p.chr)
+    p.num <- suppressWarnings(as.numeric(sub("^[<=]", "", p.chr)))
+    if(is.na(p.num)) return(paste0(" = ", p))
+    if(is.less){
+      # "p < x" asserts only an upper bound: keep the bound as given (APA
+      # leading zero dropped), tightening to the standard "< .001" floor.
+      if(p.num <= 0.001) return(" < .001")
+      return(paste0(" < ", sub("^0\\.", ".", formatC(p.num, format = "fg"))))
+    }
+    p <- p.num
+  }
+  if(p < 0.001) return(" < .001")
+  # APA never reports "p = 1.000" (nor ".000"): cap at "> .999".
+  if(round(p, 3) >= 1) return(" > .999")
+  paste0(" = ", sub("^(-?)0\\.", "\\1.", formatC(round(p, 3), format = "f", digits = 3)))
+}
+# APA-7 plotmath expression, mirroring apa_test_label.text() with italic symbols.
+apa_test_label.expression <- function(statistic.text, statistic, parameter, p,
+                                      effect.size, effect.size.text,
+                                      effect.size.ci, effect.size.bounded,
+                                      effect.size.ci.level = 0.95){
+  param <- if(is.na(parameter)) "" else paste0("(", parameter, ")")
+  if(is.na(statistic)){
+    base <- substitute(paste(italic("p"), psuffix),
+                       env = list(psuffix = apa_p_suffix(p)))
+  }
+  else{
+    base <- substitute(
+      paste(st, param, " = ", sv, ", ", italic("p"), psuffix),
+      env = list(st = statistic.text, param = param,
+                 sv = apa_format_statistic(statistic), psuffix = apa_p_suffix(p))
+    )
+  }
+  if(is.na(effect.size)) return(base)
+  es.val <- apa_format_effsize_value(effect.size, effect.size.bounded)
+  ci.str <- ""
+  if(length(effect.size.ci) == 2 && !anyNA(effect.size.ci)){
+    ci.str <- paste0(
+      ", ", apa_ci_prefix(effect.size.ci.level), " [",
+      apa_format_effsize_value(effect.size.ci[1], effect.size.bounded), ", ",
+      apa_format_effsize_value(effect.size.ci[2], effect.size.bounded), "]"
+    )
+  }
+  substitute(
+    paste(base, ", ", et, " = ", ev, ci),
+    env = list(base = base, et = effect.size.text, ev = es.val, ci = ci.str)
+  )
+}
+
+# APA-7 effect-size / CI-bound value: two decimals, dropping the leading zero for
+# a metric bounded within [-1, 1] (r, eta-squared, Kendall's W, Cliff's delta,
+# rank-biserial) and keeping it for the unbounded Cohen's d.
+apa_format_effsize_value <- function(value, bounded = TRUE){
+  if(is.na(value)) return(NA_character_)
+  txt <- formatC(round(value, 2), format = "f", digits = 2)
+  if(isTRUE(bounded)) txt <- sub("^(-?)0\\.", "\\1.", txt)
+  txt
 }
 
 # Get label parameters
@@ -425,7 +637,7 @@ get_statistic <- function(stat.test){
 }
 
 # Degree of freedom-------------------------------------------------
-get_df <- function(stat.test){
+get_df <- function(stat.test, sep = ","){
   args <- attr(stat.test, "args")
   df.cols <- c("df", "DFn", "DFd")
   if(!any(df.cols %in% colnames(stat.test))){
@@ -434,7 +646,7 @@ get_df <- function(stat.test){
   if(all(c("DFn", "DFd") %in% colnames(stat.test))){
     dfn <- round_value(stat.test$DFn, 2)
     dfd <- round_value(stat.test$DFd, 2)
-    df <- paste(dfn, dfd, sep = ",")
+    df <- paste(dfn, dfd, sep = sep)
   }
   else{
     df <- round_value(stat.test$df, 2)
@@ -518,12 +730,17 @@ get_description <- function(stat.test){
 }
 
 # Efect size ---------------------------------
-get_effect_size <- function(stat.test, type = "text"){
+get_effect_size <- function(stat.test, type = "text", style = "classic"){
   stat.method <- attr(stat.test, "args")$method
-  value <- text <- NA
+  value <- text <- column <- NA
+  # bounded = the metric lies in [-1, 1] (eta-squared, r, Kendall's W, Cliff's
+  # delta, rank-biserial); FALSE only for the unbounded Cohen's d. Used by the
+  # APA style to drop the leading zero of bounded effect sizes.
+  bounded <- TRUE
 
   if("ges" %in% colnames(stat.test)) {
     value <- stat.test$ges
+    column <- "ges"
     if(type == "expression") text <- quote(eta["g"]^2)
     else text <- "eta2[g]"
   }
@@ -531,9 +748,12 @@ get_effect_size <- function(stat.test, type = "text"){
     if(type == "expression") text <- quote(eta["p"]^2)
     else text <- "eta2[p]"
     value <- stat.test$pes
+    column <- "pes"
   }
   else if("effsize" %in% colnames(stat.test)){
     value <- stat.test$effsize
+    column <- "effsize"
+    bounded <- !identical(stat.method, "t_test")
     if(type == "expression"){
       text <- switch(
         stat.method,
@@ -555,7 +775,33 @@ get_effect_size <- function(stat.test, type = "text"){
       )
     }
   }
-  list(value = value, text = text)
+  # Per-metric effect-size columns added by effect.size = TRUE on the pairwise
+  # tests (t_test/games_howell -> cohens.d, wilcox -> cliff.delta, dunn -> r,
+  # paired wilcox -> rank.biserial). Consulted ONLY for style = "apa": the
+  # classic label historically ignored these columns, so reading them there
+  # would change a pre-existing label (regression).
+  else if(style == "apa" && "cohens.d" %in% colnames(stat.test)){
+    value <- stat.test$cohens.d
+    column <- "cohens.d"
+    bounded <- FALSE
+    text <- if(type == "expression") quote(italic("d")) else "d"
+  }
+  else if(style == "apa" && "cliff.delta" %in% colnames(stat.test)){
+    value <- stat.test$cliff.delta
+    column <- "cliff.delta"
+    text <- if(type == "expression") quote(italic(delta)) else "delta"
+  }
+  else if(style == "apa" && "rank.biserial" %in% colnames(stat.test)){
+    value <- stat.test$rank.biserial
+    column <- "rank.biserial"
+    text <- if(type == "expression") quote(italic("r")["rb"]) else "r[rb]"
+  }
+  else if(style == "apa" && "r" %in% colnames(stat.test)){
+    value <- stat.test$r
+    column <- "r"
+    text <- if(type == "expression") quote(italic("r")) else "r"
+  }
+  list(value = value, text = text, bounded = bounded, column = column)
 }
 
 # Check if paired stat test--------------------------------------------

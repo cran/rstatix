@@ -17,7 +17,10 @@ wilcox_effsize(
   ci.type = "perc",
   nboot = 1000,
   detailed = FALSE,
-  ...
+  ...,
+  boot.parallel = getOption("boot.parallel", "no"),
+  boot.ncpus = getOption("boot.ncpus", 1L),
+  method = c("r", "rank_biserial")
 )
 }
 \arguments{
@@ -59,15 +62,41 @@ hypothesis.}
 
 \item{nboot}{The number of replications to use for bootstrap.}
 
-\item{detailed}{logical value. Default is FALSE. If TRUE, the output
-additionally includes the \code{Z} \code{statistic} (extracted from the
-\code{coin} package and used to compute \code{r = Z/sqrt(N)}), the p-value
-(\code{p}) and the test \code{method}/\code{alternative}, so the effect size
-and the underlying Z are reported together in one data frame.}
+\item{detailed}{logical value. Default is FALSE. If TRUE, and
+\code{method = "r"}, the output additionally includes the \code{Z}
+\code{statistic} (extracted from the \code{coin} package and used to compute
+\code{r = Z/sqrt(N)}), the p-value (\code{p}) and the test
+\code{method}/\code{alternative}, so the effect size and the underlying Z are
+reported together in one data frame. The rank-biserial metric
+(\code{method = "rank_biserial"}) has no underlying \code{Z}, so those extra
+columns are not meaningful for it.}
 
 \item{...}{Additional arguments passed to the functions
 \code{coin::wilcoxsign_test()} (case of one- or paired-samples test) or
 \code{coin::wilcox_test()} (case of independent two-samples test).}
+
+\item{boot.parallel}{The type of parallel operation to be used when computing
+the bootstrap confidence interval. Allowed values are \code{"no"} (default),
+\code{"multicore"} and \code{"snow"}. Passed to \code{\link[boot]{boot}()}.
+Defaults to \code{getOption("boot.parallel", "no")}, so it can also be set
+globally with \code{options(boot.parallel = "multicore")}. Only used when
+\code{ci = TRUE}.}
+
+\item{boot.ncpus}{Integer. The number of processes to be used in the parallel
+bootstrap. Defaults to \code{getOption("boot.ncpus", 1L)}. Note that
+\code{boot.parallel} has no effect unless \code{boot.ncpus > 1}. Only used
+when \code{ci = TRUE}.}
+
+\item{method}{the effect-size metric. Either \code{"r"} (default) for the
+rank correlation \code{r = Z / sqrt(N)}, or \code{"rank_biserial"} for the
+rank-biserial correlation --- Cliff's delta for an independent-samples test
+(equal to \code{\link{cliff_delta}()}) or the matched-pairs rank-biserial for
+a paired test, both equal to \code{effectsize::rank_biserial()}. The
+independent-samples case is labelled with the Romano et al. magnitude
+thresholds (those thresholds define Cliff's delta); the paired case carries
+no \code{magnitude} (\code{NA}), because no threshold set is calibrated for
+the matched-pairs rank-biserial. The confidence interval (\code{ci = TRUE})
+is a percentile bootstrap.}
 }
 \value{
 return a data frame with some of the following columns: \itemize{
@@ -111,6 +140,10 @@ Compute Wilcoxon effect size (\code{r}) for: \itemize{ \item
  for r commonly in published litterature and on the internet are: \code{0.10
  - < 0.3} (small effect), \code{0.30 - < 0.5} (moderate effect) and \code{>=
  0.5} (large effect).
+
+ See the Datanovia tutorial
+ \href{https://www.datanovia.com/learn/biostatistics/two-groups/wilcoxon-test-in-r}{Wilcoxon Test in R}
+ for a worked walkthrough.
 }
 \examples{
 if(require("coin")){
@@ -139,4 +172,7 @@ ToothGrowth \%>\%
 Maciej Tomczak and Ewa Tomczak. The need to report effect size
  estimates revisited. An overview of some recommended measures of effect
  size. Trends in Sport Sciences. 2014; 1(21):19-25.
+}
+\seealso{
+The Datanovia tutorial: \href{https://www.datanovia.com/learn/biostatistics/two-groups/wilcoxon-test-in-r}{Wilcoxon Test in R}.
 }
